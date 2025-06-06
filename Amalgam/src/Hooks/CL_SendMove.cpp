@@ -1,5 +1,5 @@
 #include "../SDK/SDK.h"
-#include"../Features/NoSpread/NoSpread.h"
+#include"../Features/NoSpread/NoSpreadHitscan/NoSpreadHitscan.h"
 
 MAKE_SIGNATURE(CL_SendMove, "engine.dll", "55 8B EC 83 EC 0C 83 3D ? ? ? ? ? 0F 8C ? ? ? ? 8B 0D ? ? ? ? 8B 01 8B 40 54 FF D0 D9 5D F8 B9 ? ? ? ? E8 ? ? ? ? D9 5D FC F3 0F 10 45", 0x0);
 
@@ -10,7 +10,7 @@ MAKE_HOOK(CL_SendMove, S::CL_SendMove(), void, void* rcx)
 		return CALL_ORIGINAL(rcx);
 #endif
 
-	F::NoSpread.AskForPlayerPerf();
+	F::NoSpreadHitscan.AskForPlayerPerf();
 
 	byte data[4000];
 
@@ -45,6 +45,6 @@ MAKE_HOOK(CL_SendMove, S::CL_SendMove(), void, void* rcx)
 			I::ClientState->m_NetChannel->m_nChokedPackets -= extraCommands;
 		}
 
-		GetVirtual<bool(__thiscall*)(PVOID, INetMessage* msg, bool, bool)>(I::ClientState->m_NetChannel, 37)(I::ClientState->m_NetChannel, &moveMsg, false, false);
+		U::Memory.GetVirtual<bool(__thiscall*)(PVOID, INetMessage* msg, bool, bool)>(I::ClientState->m_NetChannel, 37)(I::ClientState->m_NetChannel, &moveMsg, false, false);
 	}
 }
