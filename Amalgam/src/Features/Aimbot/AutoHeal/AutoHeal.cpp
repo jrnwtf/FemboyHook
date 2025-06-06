@@ -35,7 +35,7 @@ bool CAutoHeal::IsValidHealTarget(CTFPlayer* pLocal, CBaseEntity* pEntity)
 	return true;
 }
 
-void CAutoHeal::ActivateOnVoice(CTFPlayer* pLocal, CWeaponMedigun* pWeapon, CUserCmd* pCmd)
+/*void CAutoHeal::ActivateOnVoice(CTFPlayer* pLocal, CWeaponMedigun* pWeapon, CUserCmd* pCmd)
 {
 	if (!Vars::Aimbot::Healing::ActivateOnVoice.Value)
 		return;
@@ -46,6 +46,22 @@ void CAutoHeal::ActivateOnVoice(CTFPlayer* pLocal, CWeaponMedigun* pWeapon, CUse
 
 	if (m_mMedicCallers.contains(pTarget->entindex()))
 		pCmd->buttons |= IN_ATTACK2;
+}*/
+
+bool CAutoHeal::ActivateOnVoice(CTFPlayer* pLocal, CWeaponMedigun* pWeapon, CUserCmd* pCmd)
+{
+	if (!Vars::Aimbot::Healing::ActivateOnVoice.Value)
+		return false;
+
+	auto pTarget = pWeapon->m_hHealingTarget().Get();
+	if (!IsValidHealTarget(pLocal, pTarget))
+		return false;
+
+	bool bReturn = m_mMedicCallers.contains(pTarget->entindex());
+	if (bReturn)
+		pCmd->buttons |= IN_ATTACK2;
+
+	return bReturn;
 }
 
 static inline Vec3 PredictOrigin(Vec3& vOrigin, Vec3 vVelocity, float flLatency, bool bTrace = true, Vec3 vMins = {}, Vec3 vMaxs = {}, unsigned int nMask = MASK_SOLID, float flNormal = 0.f)
@@ -876,6 +892,7 @@ bool CAutoHeal::RunVaccinator(CTFPlayer* pLocal, CWeaponMedigun* pWeapon, CUserC
 	
 	return false;
 }
+
 void CAutoHeal::Event(IGameEvent* pEvent, uint32_t uHash, CTFPlayer* pLocal)
 {
     if (!pEvent || !pLocal || !I::EngineClient || !I::GlobalVars)
@@ -1136,9 +1153,9 @@ void CAutoHeal::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 {
 	if (!pLocal || !pWeapon || !pCmd)
 		return;
-	
+
 	CWeaponMedigun* pMedigun = pWeapon->As<CWeaponMedigun>();
-	
+
 	if (!pMedigun)
 	{
 		m_mMedicCallers.clear();
@@ -1155,14 +1172,9 @@ void CAutoHeal::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 
 	bool bActivated = ActivateOnVoice(pLocal, pMedigun, pCmd);
 	m_mMedicCallers.clear();
+
 	if (bActivated)
 		return;
-	}
-
-	ActivateOnVoice(pLocal, pWeapon->As<CWeaponMedigun>(), pCmd);
-	m_mMedicCallers.clear();
-	
-	AutoVaccinator(pLocal, pWeapon->As<CWeaponMedigun>(), pCmd);
 }
 
 void CAutoHeal::Event(IGameEvent* pEvent, uint32_t uHash)
