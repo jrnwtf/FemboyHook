@@ -138,7 +138,7 @@ public:
 
 	inline bool ShouldCollide( int collisionGroup, int contentsMask )
 	{
-		return reinterpret_cast< bool( * )( CBaseEntity*, int, int ) >( U::Memory.GetVFunc( this, 146 ) )(this, collisionGroup, contentsMask);
+		return reinterpret_cast< bool( * )( CBaseEntity*, int, int ) >( U::Memory.GetVirtual( this, 146 ) )(this, collisionGroup, contentsMask);
 		//return S::CBaseEntity_ShouldCollide.Call<bool>( this, collisionGroup, contentsMask );
 	}
 };
