@@ -268,6 +268,10 @@
     <ClCompile Include="src\Hooks\IVModelRender_DrawModelExecute.cpp" />
     <ClCompile Include="src\Hooks\CViewRender_RenderView.cpp" />
     <ClCompile Include="src\Features\Misc\AutoItem\AutoItem.cpp" />
+    <ClCompile Include="src\Features\NavBot\FollowBot.cpp" />
+    <ClCompile Include="src\Features\NavBot\NavEngine\Controllers\MPController\MPController.cpp" />
+    <ClCompile Include="src\Features\Misc\HitSounds.cpp" />
+    <ClCompile Include="src\Features\Misc\HitSoundBytes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Utils\UtlVector\UtlVector.h" />
@@ -674,10 +678,13 @@
     <ClInclude Include="src\Features\Visuals\Groups\Groups.h" />
     <ClInclude Include="src\Features\Misc\AutoItem\AutoItem.h" />
     <ClInclude Include="src\SDK\Definitions\Interfaces\CTFInventoryManager.h" />
+    <ClInclude Include="src\Features\Misc\HitSounds.h" />
+    <ClInclude Include="src\Features\Misc\HitSoundBytes.h" />
+    <ClInclude Include="src\Features\NavBot\FollowBot.h" />
+    <ClInclude Include="src\Features\NavBot\NavEngine\Controllers\MPController\MPController.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
-    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="include\freetype\freetype.lib" />
