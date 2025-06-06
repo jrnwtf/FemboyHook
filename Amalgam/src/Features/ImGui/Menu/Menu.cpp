@@ -128,7 +128,7 @@ void CMenu::DrawMenu()
 				{ "AIMBOT", "GENERAL", "HVH", "DRAW" },
 				{ "VISUALS", "ESP", "CHAMS", "GLOW", "MISC##", "RADAR", "MENU" },
 				{ "MISC" },
-				{ "NAVENG", "GENERAL" },
+				{ "NAV", "GENERAL##" },
 				{ "LOGS", "PLAYERLIST", "SETTINGS##", "OUTPUT" },
 				{ "SETTINGS", "CONFIG", "BINDS", "MATERIALS", "EXTRA" }
 			},
@@ -142,10 +142,10 @@ void CMenu::DrawMenu()
 		);
 			PopFont();
 
-		SetCursorPos({ H::Draw.Scale(8), vWindowSize.y - H::Draw.Scale(60) });
-		PushStyleColor(ImGuiCol_Text, F::Render.Accent.Value);
-		FText("dsc.gg/nptntf");
-		PopStyleColor();
+		//SetCursorPos({ H::Draw.Scale(8), vWindowSize.y - H::Draw.Scale(60) });
+		//PushStyleColor(ImGuiCol_Text, F::Render.Accent.Value);
+		//FText("dsc.gg/nptntf");
+		//PopStyleColor();
 
 		static std::string sSearch = "";
 		SetCursorPos({ H::Draw.Scale(8), vWindowSize.y - H::Draw.Scale(37) });
@@ -251,7 +251,7 @@ void CMenu::MenuAimbot(int iTab)
 					FSlider(Vars::Backtrack::Latency);
 					FSlider(Vars::Backtrack::Interp);
 					FSlider(Vars::Backtrack::Window);
-					//FToggle(Vars::Backtrack::PreferOnShot, FToggleEnum::Right);
+					FToggle(Vars::Backtrack::PreferOnShot, FToggleEnum::Right);
 				} EndSection();
 				if (Vars::Debug::Options.Value)
 				{
@@ -1350,13 +1350,11 @@ void CMenu::MenuVisuals(int iTab)
 						FSlider(Vars::Visuals::Viewmodel::SwayInterp, FSliderEnum::Right);
 					}
 					PopTransparent();
-					/*
 					PushTransparent(!FGet(Vars::Visuals::Viewmodel::FieldOfView));
 					{
 						FSlider(Vars::Visuals::Viewmodel::FieldOfView);
 					}
-					PopTransparent();
-					*/
+					PopTransparent();	
 				} EndSection();
 			}
 
@@ -3601,7 +3599,6 @@ void CMenu::MenuSettings(int iTab)
 				}
 			} EndSection();
 		}
-		/*
 		if (Vars::Debug::Options.Value)
 		{
 			if (Section("Convar spoofer"))
@@ -3623,7 +3620,6 @@ void CMenu::MenuSettings(int iTab)
 				}
 			} EndSection();
 		}
-		*/
 #ifdef DEBUG_HOOKS
 		if (Section("Hooks", 8))
 		{
@@ -4343,7 +4339,7 @@ void CMenu::MenuNavEng(int iTab)
 			/* Column 1 */
 			TableNextColumn();
 			{
-				if (Section("Nav Engine", 8))
+				if (Section("NavEngine", 8))
 				{
 					FToggle(Vars::NavEng::NavEngine::Enabled);
 					PushTransparent(!FGet(Vars::NavEng::NavEngine::Enabled));
@@ -4377,7 +4373,7 @@ void CMenu::MenuNavEng(int iTab)
 				} EndSection();
 				if (Vars::Debug::Options.Value)
 				{
-					if (Section("##Debug Nav engine"))
+					if (Section("##Debug NavEngine"))
 					{
 						FSlider(Vars::NavEng::NavEngine::StickyIgnoreTime, FSliderEnum::Left);
 						FSlider(Vars::NavEng::NavEngine::StuckDetectTime, FSliderEnum::Right);
@@ -4389,7 +4385,7 @@ void CMenu::MenuNavEng(int iTab)
 						FSlider(Vars::NavEng::NavEngine::VischeckCacheTime, FSliderEnum::Right);
 					} EndSection();
 				}
-				if (Section("Followbot", 8))
+				if (Section("FollowBot", 8))
 				{
 					PushTransparent(!FGet(Vars::NavEng::NavEngine::Enabled));
 					FToggle(Vars::NavEng::FollowBot::Enabled);
@@ -4404,7 +4400,7 @@ void CMenu::MenuNavEng(int iTab)
 					PopTransparent();
 					PopTransparent();
 				} EndSection();
-				if (Section("Followbot only", 8))
+				if (Section("FollowBot only", 8))
 				{
 					FText("put SteamID32 to follow only that player");
 					// a temporary string to handle the input text
@@ -4420,7 +4416,7 @@ void CMenu::MenuNavEng(int iTab)
 			/* Column 2 */
 			TableNextColumn();
 			{
-				if (Section("Navbot", 8))
+				if (Section("NavBot", 8))
 				{
 					PushTransparent(!FGet(Vars::NavEng::NavEngine::Enabled));
 					{
@@ -4457,7 +4453,7 @@ void CMenu::MenuNavEng(int iTab)
 				} EndSection();
 				if (Vars::Debug::Options.Value)
 				{
-					if (Section("##Debug Navbot"))
+					if (Section("##Debug NavBot"))
 					{
 						FSlider(Vars::NavEng::NavBot::StickyDangerRange);
 						FSlider(Vars::NavEng::NavBot::ProjectileDangerRange);
