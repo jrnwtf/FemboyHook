@@ -2,6 +2,7 @@
 
 #include "../../Utils/Feature/Feature.h"
 
+#include "Interfaces/CClientDLLSharedAppSystems.h"
 #include "Interfaces/CClientModeShared.h"
 #include "Interfaces/CClientState.h"
 #include "Interfaces/CGlobalVarsBase.h"
@@ -9,6 +10,7 @@
 #include "Interfaces/CTFGCClientSystem.h"
 #include "Interfaces/CTFPartyClient.h"
 #include "Interfaces/IBaseClientDLL.h"
+#include "Interfaces/ICenterPrint.h"
 #include "Interfaces/IClientEntityList.h"
 #include "Interfaces/ICVar.h"
 #include "Interfaces/IEngineTrace.h"
@@ -25,6 +27,7 @@
 #include "Interfaces/IStudioRender.h"
 #include "Interfaces/IUniformRandomStream.h"
 #include "Interfaces/IVEngineClient.h"
+//#include "Interfaces/IVEngineEffects.h"
 #include "Interfaces/IViewRender.h"
 #include "Interfaces/IVModelInfo.h"
 #include "Interfaces/IVModelRender.h"
