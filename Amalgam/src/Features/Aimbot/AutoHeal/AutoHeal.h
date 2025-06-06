@@ -64,6 +64,7 @@ class CAutoHeal
 public:
 	void Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd);
 	void Event(IGameEvent* pEvent, uint32_t uHash, CTFPlayer* pLocal);
+	void Event(IGameEvent* pEvent, uint32_t uHash);
 
 	std::unordered_map<int, bool> m_mMedicCallers = {};
 
