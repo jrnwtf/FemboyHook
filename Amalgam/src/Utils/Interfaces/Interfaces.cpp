@@ -3,65 +3,11 @@
 #include "../../Core/Core.h"
 #include "../Assert/Assert.h"
 #include "../../SDK/Definitions/Interfaces.h"
+
 #include <string>
 #include <format>
 
 #pragma warning (disable: 4172)
-
-static const char* SearchForDLL(const char* pszDLLSearch)
-{
-	HANDLE hProcessSnap = INVALID_HANDLE_VALUE;
-	PROCESSENTRY32 pe32;
-	hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hProcessSnap == INVALID_HANDLE_VALUE)
-		return pszDLLSearch;
-
-	pe32.dwSize = sizeof(PROCESSENTRY32);
-	if (!Process32First(hProcessSnap, &pe32))
-	{
-		CloseHandle(hProcessSnap);
-		return pszDLLSearch;
-	}
-
-	//std::stringstream ssModuleStream;
-	do
-	{
-		if (pe32.szExeFile == strstr(pe32.szExeFile, "tf_win64.exe"))
-		{
-			HANDLE hModuleSnap = INVALID_HANDLE_VALUE;
-			MODULEENTRY32 me32;
-			hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pe32.th32ProcessID);
-			if (hModuleSnap == INVALID_HANDLE_VALUE)
-				break;
-
-			me32.dwSize = sizeof(MODULEENTRY32);
-			if (!Module32First(hModuleSnap, &me32))
-			{
-				CloseHandle(hModuleSnap);
-				break;
-			}
-
-			do
-			{
-				if (strstr(me32.szModule, pszDLLSearch))
-				{
-					CloseHandle(hProcessSnap);
-					CloseHandle(hModuleSnap);
-					return me32.szModule;
-				}
-				//ssModuleStream << std::format("{}{}", !ssModuleStream.str().empty() ? ", " : "", me32.szModule);
-			} while (Module32Next(hModuleSnap, &me32));
-
-			CloseHandle(hModuleSnap);
-			break;
-		}
-	} while (Process32Next(hProcessSnap, &pe32));
-	CloseHandle(hProcessSnap);
-
-	U::Core.AppendFailText(std::format("CInterfaces::Initialize() failed to find DLL:\n  {}", pszDLLSearch).c_str());
-	//U::Core.AppendFailText(std::format("Loaded modules: {}", ssModuleStream.str()).c_str());
-	return nullptr;
-}
 
 InterfaceInit_t::InterfaceInit_t(void** pPtr, const char* sDLLName, const char* sVersion, int nOffset, int nDereferenceCount, bool bSearchDLL)
 {
@@ -84,7 +30,7 @@ bool CInterfaces::Initialize()
 
 		if (Interface->m_bSearchDLL)
 		{
-			Interface->m_pszDLLName = SearchForDLL(Interface->m_pszDLLName);
+			Interface->m_pszDLLName = U::Core.SearchForDLL(Interface->m_pszDLLName);
 			if (!Interface->m_pszDLLName)
 			{
 				m_bFailed = true;
