@@ -687,10 +687,10 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 	{
 		const auto iSlot = pWeapon->GetSlot();
 		const auto bRapidFire = pWeapon->IsRapidFire();
-		
+
 		if (!m_mStorage.contains(iSlot) || pWeapon->GetWeaponID() == TF_WEAPON_PASSTIME_GUN)
 			return;
-			
+
 		auto& tStorage = m_mStorage[iSlot];
 		if (!tStorage.m_bActive)
 			return;
@@ -746,72 +746,36 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 					int damageNeeded = static_cast<int>(std::ceil(tStorage.m_flCost - currentBucket));
 					rightText = std::format("DMG: {}", std::max(0, damageNeeded));
 					rightColor = tStorage.m_iAvailableCrits > 0 ? Color_t{ 40, 200, 40, 255 } : Color_t{ 200, 40, 40, 255 };
-					
+
 					static auto bucketCap = U::ConVars.FindVar("tf_weapon_criticals_bucket_cap");
 					targetProgress = currentBucket / bucketCap->GetFloat();
 				}
-				else
-					H::Draw.String(fFont, x, y += nTall, Color_t(150, 255, 150, 255), align, "Crit Ready");
 			}
 			else
 			{
-				int iShots = tStorage.m_iNextCrit;
-				H::Draw.String(fFont, x, y += nTall, Color_t(255, 150, 150, 255), align, std::format("Crit in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
+				leftText = std::format("DMG: {}", static_cast<int>(ceilf(m_flDamageTilFlip)));
+				rightText = "BANNED";
+				rightColor = { 200, 40, 40, 255 }; // Dark red
+				barColor = { 200, 40, 40, 255 };
+				targetProgress = 0.2f; // Low progress when banned
 			}
 		}
-		else if (m_bCritBanned && iSlot != SLOT_MELEE)
-			H::Draw.String(fFont, x, y += nTall, Color_t(255, 150, 150, 255), align, std::format("Deal {} damage", ceilf(m_flDamageTilFlip)).c_str());
-
-		int iCrits = tStorage.m_iAvailableCrits;
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("{}{} / {} potential crits", iCrits, iCrits == 1000 ? "+" : "", tStorage.m_iPotentialCrits).c_str());
-
-		if (iCrits && tStorage.m_iNextCrit)
+		else
 		{
-			int iShots = tStorage.m_iNextCrit;
-			H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Next in {}{} shot{}", iShots, iShots == 1000 ? "+" : "", iShots == 1 ? "" : "s").c_str());
-		}
-
-		if (!m_bCritBanned && iSlot != SLOT_MELEE && m_flDamageTilFlip)
-			H::Draw.String(fFont, x, y += nTall, Color_t(150, 255, 150, 255), align, std::format("{} damage", floor(m_flDamageTilFlip)).c_str());
-
-		if (m_iDesyncDamage)
-		{
-			auto tColor = m_iDesyncDamage < 0 ? Color_t(150, 255, 150, 255) : Color_t(255, 150, 150, 255);
-			H::Draw.String(fFont, x, y += nTall, tColor, align, std::format("Damage desync {}{}", m_iDesyncDamage > 0 ? "+" : "", m_iDesyncDamage).c_str());
+			leftText = "Calculating";
+			rightText = "";
 		}
 	}
-	else
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, "Calculating");
+	currentProgress = std::lerp(currentProgress, targetProgress, I::GlobalVars->frametime * 10.0f);
 
-	if (Vars::Debug::Info.Value)
-	{
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("RangedDamage: {}, CritDamage: {}", m_iRangedDamage, m_iCritDamage).c_str());
+	int barWidth = static_cast<int>(boxWidth * currentProgress);
+	if (barWidth > 0)
+		H::Draw.GradientRect(x, y + textBoxHeight, barWidth, barHeight, barColor, barColor, true);
 
-#ifdef SERVER_CRIT_DATA
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("AllDamage: {} ({})", m_iRangedDamage + m_iMeleeDamage, m_iMeleeDamage).c_str());
+	H::Draw.String(fFont, x + 5, y + (textBoxHeight / 2), leftColor, ALIGN_LEFT, leftText.c_str());
+	if (!rightText.empty())
+		H::Draw.String(fFont, x + boxWidth - 5, y + (textBoxHeight / 2), rightColor, ALIGN_RIGHT, rightText.c_str());
 
-		if (pCTFGameStats)
-		{
-			if (auto pServerAnimating = S::GetServerAnimating.Call<void*>(pLocal->entindex()))
-			{
-				if (auto pPlayerStats = S::CTFGameStats_FindPlayerStats.Call<PlayerStats_t*>(pCTFGameStats, pServerAnimating))
-				{
-					H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format(
-						"RangedDamage: {}, CritDamage: {}", pPlayerStats->statsCurrentRound.m_iStat[TFSTAT_DAMAGE_RANGED], pPlayerStats->statsCurrentRound.m_iStat[TFSTAT_DAMAGE_RANGED_CRIT_RANDOM]
-					).c_str());
-					H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format(
-						"AllDamage: {} ({})", pPlayerStats->statsCurrentRound.m_iStat[TFSTAT_DAMAGE], pPlayerStats->statsCurrentRound.m_iStat[TFSTAT_DAMAGE] - pPlayerStats->statsCurrentRound.m_iStat[TFSTAT_DAMAGE_RANGED]
-					).c_str());
-				}
-			}
-		}
-
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("ResourceDamage: {} ({})", m_iResourceDamage, m_iMeleeDamage).c_str());
-#endif
-
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Bucket: {}, Shots: {}, Crits: {}", pWeapon->m_flCritTokenBucket(), pWeapon->m_nCritChecks(), pWeapon->m_nCritSeedRequests()).c_str());
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Damage: {}, Cost: {}", tStorage.m_flDamage, tStorage.m_flCost).c_str());
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("CritChance: {:.2f} ({:.2f})", m_flCritChance, m_flCritChance + 0.1f).c_str());
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Force: {}, Skip: {}", tStorage.m_vCritCommands.size(), tStorage.m_vSkipCommands.size()).c_str());
-	}
+	if (Vars::Misc::Game::AntiCheatCompatibility.Value)
+		H::Draw.String(fFont, x + boxWidth / 2, y - fFont.m_nTall - 2, Vars::Colors::IndicatorTextBad.Value, ALIGN_CENTER, "Anti-cheat compatibility");
 }
