@@ -130,11 +130,6 @@ public:
 		return reinterpret_cast<CTFLobbyShared*>(uintptr_t(pLobby) - 8); // i assume from the dynamic_cast?
 	}
 
-	inline CTFParty* GetParty()
-	{
-		return S::CTFGCClientSystem_GetParty.Call<CTFParty*>(this);
-	}
-
 	inline void SetPendingPingRefresh(bool bValue)
 	{
 		*reinterpret_cast<bool*>(uintptr_t(this) + 1116) = bValue;
