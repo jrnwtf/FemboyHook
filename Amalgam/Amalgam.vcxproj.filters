@@ -681,8 +681,6 @@
     <ClInclude Include="src\Features\Misc\HitSoundBytes.h" />
     <ClInclude Include="src\Features\NavBot\FollowBot.h" />
     <ClInclude Include="src\Features\NavBot\NavEngine\Controllers\MPController\MPController.h" />
-    <ClInclude Include="src\SDK\Definitions\Interfaces\CClientDLLSharedAppSystems.h" />
-    <ClInclude Include="src\SDK\Definitions\Interfaces\ICenterPrint.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
