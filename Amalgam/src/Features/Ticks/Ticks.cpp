@@ -431,16 +431,6 @@ void CTickshiftHandler::Draw(CTFPlayer* pLocal)
 			H::Draw.FillRect(iPosX + 1, iPosY + 1, iTotalWidth - 2, iTotalHeight - 2, Vars::Menu::Theme::Accent.Value);
 			H::Draw.EndClipping();
 		}
-
-		std::string leftText = "Ticks";
-		std::string rightText = std::format("{} / {}", iTicks, m_iMaxShift);
-		Color_t textColor = Vars::Menu::Theme::Active.Value;
-
-		H::Draw.String(fFont, x + 5, y + (textBoxHeight / 2), textColor, ALIGN_LEFT, leftText.c_str());
-		H::Draw.String(fFont, x + boxWidth - 5, y + (textBoxHeight / 2), textColor, ALIGN_RIGHT, rightText.c_str());
-
-		if (m_iWait)
-			H::Draw.StringOutlined(fFont, dtPos.x, y + boxHeight + 2, textColor, Vars::Menu::Theme::Background.Value, ALIGN_TOP, "Not Ready");
 	}
 	else
 		H::Draw.String(fFont, dtPos.x, dtPos.y + 2, Vars::Menu::Theme::Active.Value, ALIGN_TOP, std::format("Speedhack x{}", Vars::Speedhack::Amount.Value).c_str());
