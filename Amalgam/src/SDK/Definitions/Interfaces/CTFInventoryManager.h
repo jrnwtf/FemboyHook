@@ -61,12 +61,12 @@ class CTFInventoryManager
 public:
 	inline bool EquipItemInLoadout(int iClass, int iSlot, uint64_t uniqueid)
 	{
-		return reinterpret_cast<bool (*)(void*, int, int, uint64_t)>(U::Memory.GetVFunc(this, 19))(this, iClass, iSlot, uniqueid);
+		return reinterpret_cast<bool (*)(void*, int, int, uint64_t)>(U::Memory.GetVirtual(this, 19))(this, iClass, iSlot, uniqueid);
 	}
 
 	inline CTFPlayerInventory* GetLocalInventory()
 	{
-		return reinterpret_cast<CTFPlayerInventory* (*)(void*)>(U::Memory.GetVFunc(this, 23))(this);
+		return reinterpret_cast<CTFPlayerInventory* (*)(void*)>(U::Memory.GetVirtual(this, 23))(this);
 	}
 };
 
