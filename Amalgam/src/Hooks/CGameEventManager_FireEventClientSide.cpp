@@ -2,17 +2,23 @@
 #include "../Features/Killstreak/Killstreak.h"
 
 #ifndef TEXTMODE
-MAKE_HOOK(CGameEventManager_FireEventClientSide, U::Memory.GetVirtual(I::GameEventManager, 8), bool,
-	IGameEventManager2* rcx, IGameEvent* event)
+MAKE_HOOK(CGameEventManager_FireEventClientSide, U::Memory.GetVirtual(I::GameEventManager, 8), bool, IGameEventManager2* rcx, IGameEvent* pEvent)
 {
-	// We have to do it here because our own event listener runs after game event manager
-	if (Vars::Visuals::Other::KillstreakWeapons.Value)
+#ifdef DEBUG_HOOKS
+	if (!Vars::Hooks::CGameEventManager_FireEventClientSide[DEFAULT_BIND])
+		return CALL_ORIGINAL(rcx, pEvent);
+#endif
+
+	auto uHash = FNV1A::Hash32(pEvent->GetName());
+
+	if (uHash == FNV1A::Hash32Const("player_death"))
 	{
-		auto uHash = FNV1A::Hash32(event->GetName());
-		if (uHash == FNV1A::Hash32Const("player_death"))
-			F::Killstreak.PlayerDeath(event);
+		if (Vars::Visuals::Other::KillstreakWeapons.Value)
+		{
+			F::Killstreak.PlayerDeath(pEvent);
+		}
 	}
 
-	return CALL_ORIGINAL(rcx, event);
+	return CALL_ORIGINAL(rcx, pEvent);
 }
 #endif
