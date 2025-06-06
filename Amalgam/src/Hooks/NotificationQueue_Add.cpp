@@ -16,7 +16,6 @@ MAKE_HOOK(NotificationQueue_Add, S::NotificationQueue_Add(), int,
 		pNotification->Trigger();
 		pNotification->UpdateTick();
 		pNotification->MarkForDeletion();
-		return 0;
 	}
 
 	return CALL_ORIGINAL(pNotification);

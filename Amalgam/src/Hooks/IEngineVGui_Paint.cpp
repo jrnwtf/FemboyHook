@@ -14,10 +14,12 @@
 #include "../Features/Visuals/CameraWindow/CameraWindow.h"
 #include "../Features/Visuals/Notifications/Notifications.h"
 #include "../Features/Aimbot/AutoHeal/AutoHeal.h"
+#include "../Features/NavBot/NavBot.h"
 
 MAKE_HOOK(IEngineVGui_Paint, U::Memory.GetVirtual(I::EngineVGui, 14), void,
 	void* rcx, int iMode)
 {
+#ifndef TEXTMODE
 #ifdef DEBUG_HOOKS
 	if (!Vars::Hooks::IEngineVGui_Paint[DEFAULT_BIND])
 		return CALL_ORIGINAL(rcx, iMode);
@@ -51,6 +53,7 @@ MAKE_HOOK(IEngineVGui_Paint, U::Memory.GetVirtual(I::EngineVGui, 14), void,
 			F::Backtrack.Draw(pLocal);
 			F::SpectatorList.Draw(pLocal);
 			F::CritHack.Draw(pLocal);
+			F::NavBot.Draw(pLocal);
 			F::Ticks.Draw(pLocal);
 			F::Visuals.DrawDebugInfo(pLocal);
 		}
@@ -68,4 +71,5 @@ MAKE_HOOK(IEngineVGui_Paint, U::Memory.GetVirtual(I::EngineVGui, 14), void,
 		}
 		H::Draw.End();
 	}
+#endif
 }

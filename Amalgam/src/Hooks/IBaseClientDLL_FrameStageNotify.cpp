@@ -30,9 +30,10 @@ MAKE_HOOK(IBaseClientDLL_FrameStageNotify, U::Memory.GetVirtual(I::BaseClientDLL
 	{
 	case FRAME_NET_UPDATE_START:
 	{
+#ifndef TEXTMODE
 		auto pLocal = H::Entities.GetLocal();
 		F::Spectate.NetUpdateStart(pLocal);
-
+#endif
 		H::Entities.Clear();
 		break;
 	}
@@ -40,59 +41,69 @@ MAKE_HOOK(IBaseClientDLL_FrameStageNotify, U::Memory.GetVirtual(I::BaseClientDLL
 	{
 		H::Entities.Store();
 		F::PlayerUtils.UpdatePlayers();
-		F::Resolver.FrameStageNotify();
+	
+		try {
+			F::Resolver.FrameStageNotify();
+		}
+		catch (...) {
+			// Silent failure if resolver causes issues
+		}
 
 		for (auto& pEntity : H::Entities.GetGroup(EGroupType::PLAYERS_ALL))
 		{
 			auto pPlayer = pEntity->As<CTFPlayer>();
-			if (pPlayer->entindex() == I::EngineClient->GetLocalPlayer() && !I::EngineClient->IsPlayingDemo() || pPlayer->IsDormant() || !pPlayer->IsAlive())
+			if (!pPlayer || pPlayer->entindex() == I::EngineClient->GetLocalPlayer() && !I::EngineClient->IsPlayingDemo() || pPlayer->IsDormant() || !pPlayer->IsAlive())
 				continue; // local player managed in CreateMove
-
-			bool bResolver = F::Resolver.GetAngles(pPlayer);
-			if (!(Vars::Visuals::Removals::Interpolation.Value || bResolver))
-				continue;
-
-			if (int iDeltaTicks = TIME_TO_TICKS(H::Entities.GetDeltaTime(pPlayer->entindex())))
-			{
-				float flOldFrameTime = I::GlobalVars->frametime;
-				I::GlobalVars->frametime = I::Prediction->m_bEnginePaused ? 0.f : TICK_INTERVAL;
-				for (int i = 0; i < iDeltaTicks; i++)
+			
+			try {
+				bool bResolver = F::Resolver.GetAngles(pPlayer);
+				if (!(Vars::Visuals::Removals::Interpolation.Value || bResolver))
+					continue;
+				if (int iDeltaTicks = TIME_TO_TICKS(H::Entities.GetDeltaTime(pPlayer->entindex())))
 				{
-					G::UpdatingAnims = true;
-
-					if (bResolver)
+					float flOldFrameTime = I::GlobalVars->frametime;
+					I::GlobalVars->frametime = I::Prediction->m_bEnginePaused ? 0.f : TICK_INTERVAL;
+					for (int i = 0; i < iDeltaTicks; i++)
 					{
-						float flYaw, flPitch;
-						F::Resolver.GetAngles(pPlayer, &flYaw, &flPitch, nullptr, i + 1 == iDeltaTicks);
-
-						float flOriginalYaw = pPlayer->m_angEyeAnglesY(), flOriginalPitch = pPlayer->m_angEyeAnglesX();
-						pPlayer->m_angEyeAnglesY() = flYaw, pPlayer->m_angEyeAnglesX() = flPitch;
-						pPlayer->UpdateClientSideAnimation();
-						pPlayer->m_angEyeAnglesY() = flOriginalYaw, pPlayer->m_angEyeAnglesX() = flOriginalPitch;
+						G::UpdatingAnims = true;
+						if (bResolver)
+						{
+							float flYaw, flPitch;
+							F::Resolver.GetAngles(pPlayer, &flYaw, &flPitch, nullptr, i + 1 == iDeltaTicks);
+							float flOriginalYaw = pPlayer->m_angEyeAnglesY(), flOriginalPitch = pPlayer->m_angEyeAnglesX();
+							pPlayer->m_angEyeAnglesY() = flYaw, pPlayer->m_angEyeAnglesX() = flPitch;
+							pPlayer->UpdateClientSideAnimation();
+							pPlayer->m_angEyeAnglesY() = flOriginalYaw, pPlayer->m_angEyeAnglesX() = flOriginalPitch;
+						}
+						else
+							pPlayer->UpdateClientSideAnimation();
+						G::UpdatingAnims = false;
 					}
-					else
-						pPlayer->UpdateClientSideAnimation();
-
-					G::UpdatingAnims = false;
+					I::GlobalVars->frametime = flOldFrameTime;
 				}
-				I::GlobalVars->frametime = flOldFrameTime;
+			}
+			catch (...) {
+				// Silent failure for animation updates
 			}
 		}
 
 		F::Backtrack.Store();
 		F::MoveSim.Store();
 		F::CritHack.Store();
-
+#ifndef TEXTMODE
 		auto pLocal = H::Entities.GetLocal();
 		F::ESP.Store(pLocal);
 		F::Chams.Store(pLocal);
 		F::Glow.Store(pLocal);
 		F::Visuals.Store(pLocal);
+#endif
 
 		F::CheaterDetection.Run();
+#ifndef TEXTMODE
 		F::Spectate.NetUpdateEnd(pLocal);
 
 		F::Visuals.Modulate();
+#endif
 		break;
 	}
 	case FRAME_RENDER_START:

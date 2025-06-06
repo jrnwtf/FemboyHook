@@ -197,8 +197,10 @@ public:
 	NETVAR_OFF(m_nCritSeedRequests, int, "CTFWeaponBase", "m_iReloadMode", -236);
 	NETVAR_OFF(m_iWeaponMode, int, "CTFWeaponBase", "m_iReloadMode", -4);
 	NETVAR_OFF(m_flCritTime, float, "CTFWeaponBase", "m_flLastCritCheckTime", -4);
+	NETVAR_OFF(m_iLastCritCheckFrame, int, "CTFWeaponBase", "m_flLastCritCheckTime", 4);
 	NETVAR_OFF(m_iCurrentSeed, int, "CTFWeaponBase", "m_flLastCritCheckTime", 8);
 	NETVAR_OFF(m_flLastRapidFireCritCheckTime, float, "CTFWeaponBase", "m_flLastCritCheckTime", 12);
+
 	inline void* m_pMeter()
 	{
 		static int nOffset = U::NetVars.GetNetVar("CTFWeaponBase", "m_flEffectBarRegenTime") + -40;

@@ -3,6 +3,7 @@
 MAKE_HOOK(CStudioRender_SetAlphaModulation, U::Memory.GetVirtual(I::StudioRender, 28), void,
 	void* rcx, float flAlpha)
 {
+#ifndef TEXTMODE
 #ifdef DEBUG_HOOKS
 	if (!Vars::Hooks::CStudioRender_SetAlphaModulation[DEFAULT_BIND])
 		return CALL_ORIGINAL(rcx, flAlpha);
@@ -12,4 +13,5 @@ MAKE_HOOK(CStudioRender_SetAlphaModulation, U::Memory.GetVirtual(I::StudioRender
 		return CALL_ORIGINAL(rcx, float(Vars::Colors::PropModulation.Value.a) / 255.f * flAlpha);
 
 	CALL_ORIGINAL(rcx, flAlpha);
+#endif
 }

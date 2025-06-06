@@ -2,6 +2,7 @@
 #include "../../../Utils/Feature/Feature.h"
 #include "../../Definitions/Classes.h"
 #include <unordered_map>
+#include <unordered_set>
 
 enum struct EGroupType
 {
@@ -9,7 +10,7 @@ enum struct EGroupType
 	PLAYERS_ALL, PLAYERS_ENEMIES, PLAYERS_TEAMMATES,
 	BUILDINGS_ALL, BUILDINGS_ENEMIES, BUILDINGS_TEAMMATES,
 	PICKUPS_HEALTH, PICKUPS_AMMO, PICKUPS_MONEY, PICKUPS_POWERUP, PICKUPS_SPELLBOOK,
-	WORLD_PROJECTILES, WORLD_OBJECTIVE, WORLD_NPC, WORLD_BOMBS, WORLD_GARGOYLE,
+	WORLD_PROJECTILES, WORLD_OBJECTIVE, WORLD_NPC, WORLD_BOMBS, WORLD_GARGOYLE, WORLD_RESPAWN_ROOMS,
 	MISC_LOCAL_STICKIES, MISC_LOCAL_FLARES, MISC_DOTS
 };
 
@@ -30,6 +31,7 @@ class CEntities
 	CTFPlayer* m_pLocal = nullptr;
 	CTFWeaponBase* m_pLocalWeapon = nullptr;
 	CTFPlayerResource* m_pPlayerResource = nullptr;
+	CBaseTeamObjectiveResource* m_pObjectiveResource = nullptr;
 
 	std::unordered_map<EGroupType, std::vector<CBaseEntity*>> m_mGroups = {};
 
@@ -71,6 +73,7 @@ public:
 	CTFPlayer* GetLocal();
 	CTFWeaponBase* GetWeapon();
 	CTFPlayerResource* GetPR();
+	CBaseTeamObjectiveResource* GetOR();
 
 	const std::vector<CBaseEntity*>& GetGroup(const EGroupType& Group);
 

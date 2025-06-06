@@ -48,7 +48,7 @@ private:
 
 	void ResetWeapons(CTFPlayer* pLocal);
 	void Reset();
-
+		
 	void StoreHealthHistory(int iIndex, int iHealth, bool bDamage = false);
 
 	int m_iFillStart = 0;
@@ -67,6 +67,7 @@ private:
 	int m_iWishRandomSeed = 0;
 
 public:
+	float GetCost( CTFWeaponBase* pWeapon );
 	void Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd);
 	bool CalcIsAttackCriticalHandler();
 	void Event(IGameEvent* pEvent, uint32_t uHash, CTFPlayer* pLocal);
@@ -75,6 +76,8 @@ public:
 
 	bool WeaponCanCrit(CTFWeaponBase* pWeapon, bool bWeaponOnly = false);
 	int PredictCmdNum(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd);
+	u32 uLastCritCmdNum = 0;
+	bool m_bForce = false;
 
 	std::unordered_map<int, WeaponStorage_t> m_mStorage = {};
 };

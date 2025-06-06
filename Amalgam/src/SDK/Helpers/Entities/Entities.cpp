@@ -27,6 +27,9 @@ void CEntities::Store()
 		case ETFClassID::CTFPlayerResource:
 			m_pPlayerResource = pEntity->As<CTFPlayerResource>();
 			break;
+		case ETFClassID::CTFObjectiveResource:
+			m_pObjectiveResource = pEntity->As<CBaseTeamObjectiveResource>();
+			break;
 		case ETFClassID::CObjectSentrygun:
 		case ETFClassID::CObjectDispenser:
 		case ETFClassID::CObjectTeleporter:
@@ -115,6 +118,7 @@ void CEntities::Store()
 			break;
 		}
 		case ETFClassID::CCaptureFlag:
+		case ETFClassID::CObjectCartDispenser:
 			m_mGroups[EGroupType::WORLD_OBJECTIVE].push_back(pEntity);
 			break;
 		case ETFClassID::CEyeballBoss:
@@ -135,6 +139,9 @@ void CEntities::Store()
 		case ETFClassID::CHalloweenGiftPickup:
 			if (pEntity->As<CHalloweenGiftPickup>()->m_hTargetPlayer().Get() == m_pLocal)
 				m_mGroups[EGroupType::WORLD_GARGOYLE].push_back(pEntity);
+			break;
+		case ETFClassID::CFuncRespawnRoom:
+			m_mGroups[EGroupType::WORLD_RESPAWN_ROOMS].push_back(pEntity);
 			break;
 		case ETFClassID::CSniperDot:
 			m_mGroups[EGroupType::MISC_DOTS].push_back(pEntity);
@@ -181,7 +188,7 @@ void CEntities::Store()
 
 				ConstTFLobbyPlayer pDetails;
 				pLobby->GetMemberDetails(&pDetails, i);
-				
+
 				auto pProto = pDetails.Proto();
 				mF2P[uFriendsID] = pProto->chat_suspension;
 				mLevels[uFriendsID] = pProto->rank;
@@ -247,8 +254,11 @@ void CEntities::Store()
 				pPlayer->m_iHealth() = pResource->m_iHealth(n);
 				if (m_mDormancy.contains(n))
 				{
+					bool bForceDormant = (pPlayer->GetClassID() == ETFClassID::CObjectSentrygun ||
+										  pPlayer->GetClassID() == ETFClassID::CObjectDispenser ||
+										  pPlayer->GetClassID() == ETFClassID::CObjectTeleporter) && pPlayer->As<CBaseObject>()->m_hBuilder().Get() == pLocal;
 					auto& tDormancy = m_mDormancy[n];
-					if (I::EngineClient->Time() - tDormancy.LastUpdate < Vars::ESP::DormantDuration.Value)
+					if ((I::EngineClient->Time() - tDormancy.LastUpdate < Vars::ESP::DormantDuration.Value) || bForceDormant)
 						pPlayer->SetAbsOrigin(pPlayer->m_vecOrigin() = tDormancy.Location);
 					else
 						m_mDormancy.erase(n);
@@ -307,6 +317,7 @@ void CEntities::Clear(bool bShutdown)
 	m_pLocal = nullptr;
 	m_pLocalWeapon = nullptr;
 	m_pPlayerResource = nullptr;
+	m_pObjectiveResource = nullptr;
 	m_mGroups.clear();
 	m_bSettingUpBones = false;
 
@@ -330,7 +341,7 @@ void CEntities::ManualNetwork(const StartSoundParams_t& params)
 		return;
 
 	auto pEntity = I::ClientEntityList->GetClientEntity(params.soundsource)->As<CBaseEntity>();
-	if (pEntity && pEntity->IsDormant() && pEntity->IsPlayer())
+	if ( pEntity && pEntity->IsDormant( ) && ( pEntity->IsPlayer( ) || pEntity->IsSentrygun( ) || pEntity->IsDispenser( ) || pEntity->IsTeleporter( ) ) )
 		m_mDormancy[params.soundsource] = { params.origin, I::EngineClient->Time() };
 }
 
@@ -487,6 +498,7 @@ CTFPlayerResource* CEntities::GetPR()
 {
 	return m_pPlayerResource;
 }
+CBaseTeamObjectiveResource* CEntities::GetOR( ) { return m_pObjectiveResource; }
 
 const std::vector<CBaseEntity*>& CEntities::GetGroup(const EGroupType& Group) { return m_mGroups[Group]; }
 

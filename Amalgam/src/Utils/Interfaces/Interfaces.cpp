@@ -3,7 +3,6 @@
 #include "../../Core/Core.h"
 #include "../Assert/Assert.h"
 #include "../../SDK/Definitions/Interfaces.h"
-#include <TlHelp32.h>
 #include <string>
 #include <format>
 

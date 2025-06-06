@@ -14,10 +14,9 @@ MAKE_HOOK(FX_FireBullets, S::FX_FireBullets(), void,
 	if (!Vars::Hooks::FX_FireBullets[DEFAULT_BIND])
 		return CALL_ORIGINAL(pWpn, iPlayer, vecOrigin, vecAngles, iWeapon, iMode, iSeed, flSpread, flDamage, bCritical);
 #endif
-
 	static const auto dwDesired = S::CTFWeaponBaseGun_FireBullet_FireBullets_Call();
 	const auto dwRetAddr = uintptr_t(_ReturnAddress());
-
+	
 	if (iPlayer != I::EngineClient->GetLocalPlayer())
 		F::Backtrack.ReportShot(iPlayer);
 	else if (Vars::Aimbot::General::NoSpread.Value && dwRetAddr == dwDesired)

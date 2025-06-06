@@ -22,6 +22,7 @@ mono_crash.*
 [Rr]elease/
 [Rr]eleases/
 x64/
+Amalgam/src/cathook
 x86/
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
@@ -32,6 +33,8 @@ bld/
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
+boost_1_86_0/
+pastorboat/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

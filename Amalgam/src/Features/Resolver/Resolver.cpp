@@ -48,7 +48,7 @@ void CResolver::FrameStageNotify()
 {
 	if (!Vars::Resolver::Enabled.Value || !I::EngineClient->IsInGame() || I::EngineClient->IsPlayingDemo())
 		return;
-
+	
 	auto pResource = H::Entities.GetPR();
 	if (!pResource)
 		return;

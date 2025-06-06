@@ -1,3 +1,4 @@
+#ifndef TEXTMODE
 #include "Direct3DDevice9.h"
 
 #include "../SDK/SDK.h"
@@ -29,7 +30,6 @@ LONG __stdcall WndProc::Func(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	if (F::Menu.m_bIsOpen)
 	{
 		ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
-
 		if ((ImGui::GetIO().WantTextInput || F::Menu.m_bInKeybind) && WM_KEYFIRST <= uMsg && uMsg <= WM_KEYLAST)
 		{
 			I::InputSystem->ResetInputState();
@@ -85,3 +85,4 @@ void WndProc::Unload()
 {
 	SetWindowLongPtr(hwWindow, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(Original));
 }
+#endif 

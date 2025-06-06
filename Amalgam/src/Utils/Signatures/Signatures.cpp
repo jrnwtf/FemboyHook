@@ -25,8 +25,7 @@ bool CSignature::Initialize()
 		return false;
 	}
 
-	m_dwVal += m_nOffset;
-	return true;
+	return m_dwVal += m_nOffset;
 }
 
 bool CSignatures::Initialize()

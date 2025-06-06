@@ -192,7 +192,7 @@ public:
 	{
 		return Max(v1).Min(v2);
 	}
-
+	
 	inline Vec2 Lerp(const Vec2& v, float t) const
 	{
 		return { x + (v.x - x) * t, y + (v.y - y) * t };
@@ -270,10 +270,10 @@ public:
 		return x * v.x + y * v.y;
 	}
 
-	inline bool IsZero(void) const
+	inline bool IsZero(float tolerance = 0.001f) const
 	{
-		return fabsf(x) < 0.001f &&
-			   fabsf(y) < 0.001f;
+		return fabsf(x) < tolerance &&
+			   fabsf(y) < tolerance;
 	}
 };
 using Vector2D = Vec2;
@@ -317,6 +317,11 @@ public:
 	inline Vec3& operator=(const Vec3& v)
 	{
 		x = v.x; y = v.y; z = v.z; return *this;
+	}
+
+	inline Vec3& operator-()
+	{
+		x = -x; y = -y; z = -z; return *this;
 	}
 
 	inline float& operator[](int i)
@@ -567,9 +572,9 @@ public:
 		return Vec3(x * flLengthNormal, y * flLengthNormal);
 	}
 
-	inline Vec3 Get2D()
+	inline Vec2 Get2D()
 	{
-		return Vec3(x, y, 0);
+		return {x, y};
 	}
 
 	inline float Length2D(void) const
@@ -602,11 +607,11 @@ public:
 		return Vec3(y * v.z - z * v.y, z * v.x - x * v.z, x * v.y - y * v.x);
 	}
 
-	inline bool IsZero(void) const
+	inline bool IsZero(float tolerance = 0.001f) const
 	{
-		return fabsf(x) < 0.001f &&
-			   fabsf(y) < 0.001f &&
-			   fabsf(z) < 0.001f;
+		return fabsf(x) < tolerance &&
+			   fabsf(y) < tolerance &&
+			   fabsf(z) < tolerance;
 	}
 
 	inline Vec3 ToAngle() const noexcept
@@ -615,6 +620,7 @@ public:
 				 RAD2DEG(atan2(y, x)),
 				 0.f };
 	}
+
 	inline Vec3 FromAngle() const noexcept
 	{
 		return { cos(DEG2RAD(x)) * cos(DEG2RAD(y)),

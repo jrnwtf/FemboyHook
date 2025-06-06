@@ -20,7 +20,6 @@ bool CTraceFilterHitscan::ShouldHitEntity(IHandleEntity* pServerEntity, int nCon
 	case ETFClassID::CTFMedigunShield:
 	{
 		auto pLocal = H::Entities.GetLocal();
-		auto pWeapon = H::Entities.GetWeapon();
 
 		const int iTargetTeam = pEntity->m_iTeamNum(), iLocalTeam = pLocal ? pLocal->m_iTeamNum() : iTargetTeam;
 		return iTargetTeam != iLocalTeam;
@@ -148,4 +147,37 @@ bool CTraceFilterWorldAndPropsOnly::ShouldHitEntity(IHandleEntity* pServerEntity
 TraceType_t CTraceFilterWorldAndPropsOnly::GetTraceType() const
 {
 	return TRACE_EVERYTHING_FILTER_PROPS;
+}
+
+#define MOVEMENT_COLLISION_GROUP 8
+#define RED_CONTENTS_MASK 0x800
+#define BLU_CONTENTS_MASK 0x1000
+
+bool CTraceFilterNavigation::ShouldHitEntity(IHandleEntity* pServerEntity, int nContentsMask)
+{
+	if (!pServerEntity)
+		return false;
+
+	auto pEntity = reinterpret_cast<CBaseEntity*>(pServerEntity);
+	if (pEntity->entindex() != 0 && pEntity->GetClassID() != ETFClassID::CBaseEntity)
+	{
+		if (pEntity->GetClassID() == ETFClassID::CFuncRespawnRoomVisualizer)
+		{
+			auto pLocal = H::Entities.GetLocal();
+			const int iTargetTeam = pEntity->m_iTeamNum(), iLocalTeam = pLocal ? pLocal->m_iTeamNum() : iTargetTeam;
+
+			// Cant we just check for the teamnum here???
+
+			// If we can't collide, hit it
+			if (!pEntity->ShouldCollide(MOVEMENT_COLLISION_GROUP, iLocalTeam == TF_TEAM_RED ? RED_CONTENTS_MASK : BLU_CONTENTS_MASK))
+				return true;
+		}
+		return false;
+	}
+	return true;
+}
+
+TraceType_t CTraceFilterNavigation::GetTraceType() const
+{
+	return TRACE_EVERYTHING;
 }

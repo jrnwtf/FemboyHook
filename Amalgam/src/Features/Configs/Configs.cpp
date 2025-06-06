@@ -320,7 +320,7 @@ bool CConfigs::SaveConfig(const std::string& sConfigName, bool bNotify)
 {
 	try
 	{
-		const bool bLoadNosave = GetAsyncKeyState(VK_SHIFT) & 0x8000;
+		const bool bLoadNosave = Vars::Config::LoadDebugSettings.Value || GetAsyncKeyState(VK_SHIFT) & 0x8000;
 
 		boost::property_tree::ptree writeTree;
 
@@ -394,7 +394,7 @@ bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 	// Read ptree from json
 	try
 	{
-		const bool bLoadNosave = GetAsyncKeyState(VK_SHIFT) & 0x8000;
+		bool bLoadNosave = GetAsyncKeyState(VK_SHIFT) & 0x8000;
 
 		boost::property_tree::ptree readTree;
 		read_json(m_sConfigPath + sConfigName + m_sConfigExtension, readTree);
@@ -480,6 +480,9 @@ bool CConfigs::LoadConfig(const std::string& sConfigName, bool bNotify)
 				else LoadMain(Gradient_t, varTree)
 				else LoadMain(DragBox_t, varTree)
 				else LoadMain(WindowBox_t, varTree)
+				
+				if ( !bLoadNosave && pVar->m_sName.find( "LoadDebugSettings" ) != std::string::npos && pVar->As<bool>( )->Map[DEFAULT_BIND] )
+					bLoadNosave = true;
 			}
 		}
 

@@ -42,10 +42,12 @@ bool CProjectileSimulation::GetInfoMain(CTFPlayer* pPlayer, CTFWeaponBase* pWeap
 			float flOldCurrentTime = I::GlobalVars->curtime;
 			I::GlobalVars->curtime = TICKS_TO_TIME(pPlayer->m_nTickBase());
 
+			CValve_Random* Random = new CValve_Random();
 			int iCmdNum = iFlags & ProjSimEnum::PredictCmdNum ? F::CritHack.PredictCmdNum(pPlayer, pWeapon, G::CurrentUserCmd) : G::CurrentUserCmd->command_number;
-			SDK::RandomSeed(SDK::SeedFileLineHash(MD5_PseudoRandom(iCmdNum) & 0x7FFFFFFF, "SelectWeightedSequence", 0));
+			//SDK::RandomSeed(SDK::SeedFileLineHash(MD5_PseudoRandom(iCmdNum) & 0x7FFFFFFF, "SelectWeightedSequence", 0));
+			Random->SetSeed(SDK::SeedFileLineHash(MD5_PseudoRandom(iCmdNum) & 0x7FFFFFFF, "SelectWeightedSequence", 0));
 			for (int i = 0; i < 6; ++i)
-				SDK::RandomFloat();
+				Random->RandomFloat();//SDK::RandomFloat();
 
 			Vec3 vAngAdd = pWeapon->GetSpreadAngles() - I::EngineClient->GetViewAngles();
 			switch (pWeapon->GetWeaponID())
@@ -54,14 +56,16 @@ bool CProjectileSimulation::GetInfoMain(CTFPlayer* pPlayer, CTFWeaponBase* pWeap
 				// done after the projectile is created and not before, position may be a bit off
 				if (pWeapon->As<CTFPipebombLauncher>()->m_flChargeBeginTime() > 0.f && I::GlobalVars->curtime - pWeapon->As<CTFPipebombLauncher>()->m_flChargeBeginTime() > 5.0f)
 				{
-					vAngAdd.x += -6.f + SDK::RandomInt() / float(0x7FFF) * 12.f;
-					vAngAdd.y += -6.f + SDK::RandomInt() / float(0x7FFF) * 12.f;
+					vAngAdd.x += -6.f + /*SDK::RandomInt()*/Random->RandomInt() / float(0x7FFF) * 12.f;
+					vAngAdd.y += -6.f + /*SDK::RandomInt()*/Random->RandomInt() / float(0x7FFF) * 12.f;
 				}
 				break;
 			case TF_WEAPON_SYRINGEGUN_MEDIC:
-				vAngAdd.x += SDK::RandomFloat(-1.5f, 1.5f);
-				vAngAdd.y += SDK::RandomFloat(-1.5f, 1.5f);
+				vAngAdd.x += Random->RandomFloat(-1.5f, 1.5f);//SDK::RandomFloat(-1.5f, 1.5f);
+				vAngAdd.y += Random->RandomFloat(-1.5f, 1.5f);//SDK::RandomFloat(-1.5f, 1.5f);
 			}
+			delete(Random);
+
 			if (!(iFlags & ProjSimEnum::NoRandomAngles)) // don't do angle stuff for aimbot, nospread will pick that up
 				vAngles += vAngAdd;
 
@@ -301,6 +305,9 @@ TraceType_t CTraceFilterWorldPropsObjects::GetTraceType() const
 
 bool CProjectileSimulation::GetInfo(CTFPlayer* pPlayer, CTFWeaponBase* pWeapon, Vec3 vAngles, ProjectileInfo& tProjInfo, int iFlags, float flAutoCharge)
 {
+	if (IsTextModeEnabled())
+		return false;
+
 	bool InitCheck = iFlags & ProjSimEnum::InitCheck;
 	bool bQuick = iFlags & ProjSimEnum::Quick;
 
@@ -325,6 +332,9 @@ bool CProjectileSimulation::GetInfo(CTFPlayer* pPlayer, CTFWeaponBase* pWeapon, 
 
 bool CProjectileSimulation::Initialize(ProjectileInfo& tProjInfo, bool bSimulate, bool bVelocities)
 {
+	if (IsTextModeEnabled())
+		return false;
+
 	if (!env)
 		env = I::Physics->CreateEnvironment();
 
@@ -581,7 +591,7 @@ bool CProjectileSimulation::Initialize(ProjectileInfo& tProjInfo, bool bSimulate
 
 void CProjectileSimulation::RunTick(ProjectileInfo& tProjInfo, bool bPath) // bug: per frame projectile trace can cause inconsistencies?
 {
-	if (!env)
+	if (IsTextModeEnabled() || !env)
 		return;
 
 	if (bPath)

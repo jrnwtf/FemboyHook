@@ -12,7 +12,7 @@ MAKE_HOOK(CNetChannel_SendDatagram, S::CNetChannel_SendDatagram(), int,
 		return CALL_ORIGINAL(pNetChan, datagram);
 #endif
 
-	if (datagram)
+	if (datagram || G::Unload)
 		return CALL_ORIGINAL(pNetChan, datagram);
 
 	F::Backtrack.AdjustPing(pNetChan);

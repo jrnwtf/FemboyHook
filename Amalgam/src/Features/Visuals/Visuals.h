@@ -34,10 +34,15 @@ public:
 	void DrawAntiAim(CTFPlayer* pLocal);
 	void DrawPickupTimers();
 	void DrawDebugInfo(CTFPlayer* pLocal);
+	void DrawNavEngine();
 
 	std::vector<DrawBox_t> GetHitboxes(matrix3x4* aBones, CBaseAnimating* pEntity, std::vector<int> vHitboxes = {}, int iTarget = -1);
 	void DrawEffects();
 	void DrawServerHitboxes(CTFPlayer* pLocal);
+	
+	void RestoreLines();
+	void RestorePaths();
+	void RestoreBoxes();
 
 	void FOV(CTFPlayer* pLocal, CViewSetup* pView);
 	void ThirdPerson(CTFPlayer* pLocal, CViewSetup* pView);

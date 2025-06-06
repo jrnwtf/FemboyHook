@@ -1,3 +1,4 @@
+#ifndef TEXTMODE
 #include "Render.h"
 
 #include "../../Hooks/Direct3DDevice9.h"
@@ -83,6 +84,9 @@ void CRender::LoadColors()
 	colors[ImGuiCol_ScrollbarBg] = {};
 	colors[ImGuiCol_Text] = Active;
 	colors[ImGuiCol_WindowBg] = {};
+	colors[ImGuiCol_CheckMark] = Accent;
+	colors[ImGuiCol_SliderGrab] = Accent;
+	colors[ImGuiCol_SliderGrabActive] = { Accent.Value.x * 1.2f, Accent.Value.y * 1.2f, Accent.Value.z * 1.2f, Accent.Value.w };
 }
 
 void CRender::LoadFonts()
@@ -135,7 +139,7 @@ void CRender::LoadStyle()
 	style.ChildRounding = H::Draw.Scale(4);
 	style.FrameBorderSize = 0.f;
 	style.FramePadding = { 0, 0 };
-	style.FrameRounding = H::Draw.Scale(4);
+	style.FrameRounding = H::Draw.Scale(3);
 	style.ItemInnerSpacing = { 0, 0 };
 	style.ItemSpacing = { H::Draw.Scale(8), H::Draw.Scale(8) };
 	style.PopupBorderSize = 0.f;
@@ -145,6 +149,7 @@ void CRender::LoadStyle()
 	style.WindowBorderSize = 0.f;
 	style.WindowPadding = { 0, 0 };
 	style.WindowRounding = H::Draw.Scale(4);
+	style.GrabRounding = H::Draw.Scale(3);
 }
 
 void CRender::Initialize(IDirect3DDevice9* pDevice)
@@ -161,3 +166,4 @@ void CRender::Initialize(IDirect3DDevice9* pDevice)
 	LoadFonts();
 	LoadStyle();
 }
+#endif 

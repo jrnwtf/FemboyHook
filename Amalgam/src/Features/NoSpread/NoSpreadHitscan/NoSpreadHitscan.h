@@ -29,6 +29,7 @@ public:
 
 	int m_iSeed = 0;
 	float m_flMantissaStep = 0.f;
+	int m_iPredictionBullet = -1;
 };
 
 ADD_FEATURE(CNoSpreadHitscan, NoSpreadHitscan);

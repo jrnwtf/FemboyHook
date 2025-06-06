@@ -5,6 +5,7 @@
 #include "../../Simulation/ProjectileSimulation/ProjectileSimulation.h"
 #include "../../Ticks/Ticks.h"
 #include "../../Visuals/Visuals.h"
+#include "../../NavBot/NavBot.h"
 
 //#define SPLASH_DEBUG1 // normal splash visualization
 //#define SPLASH_DEBUG2 // obstructed splash visualization
@@ -142,8 +143,19 @@ std::vector<Target_t> CAimbotProjectile::SortTargets(CTFPlayer* pLocal, CTFWeapo
 	auto vTargets = GetTargets(pLocal, pWeapon);
 
 	F::AimbotGlobal.SortTargets(vTargets, Vars::Aimbot::General::TargetSelection.Value);
+
+	// Prioritize navbot target
+	if (Vars::Aimbot::General::PrioritizeNavbot.Value && F::NavBot.m_iStayNearTargetIdx)
+	{
+		std::sort((vTargets).begin(), (vTargets).end(), [&](const Target_t& a, const Target_t& b) -> bool
+				  {
+					  return a.m_pEntity->entindex() == F::NavBot.m_iStayNearTargetIdx && b.m_pEntity->entindex() != F::NavBot.m_iStayNearTargetIdx;
+				  });
+	}
+
 	vTargets.resize(std::min(size_t(Vars::Aimbot::General::MaxTargets.Value), vTargets.size()));
-	F::AimbotGlobal.SortPriority(vTargets);
+	if (!Vars::Aimbot::General::PrioritizeNavbot.Value || !F::NavBot.m_iStayNearTargetIdx)
+		F::AimbotGlobal.SortPriority(vTargets);
 	return vTargets;
 }
 
@@ -574,7 +586,7 @@ std::vector<Point_t> CAimbotProjectile::GetSplashPoints(Target_t& tTarget, std::
 	Vec3 vTargetEye = tTarget.m_vPos + tInfo.m_vTargetEye;
 
 	auto checkPoint = [&](CGameTrace& trace, bool& bErase, bool& bNormal)
-		{	
+		{
 			bErase = !trace.m_pEnt || trace.fraction == 1.f || trace.surface.flags & SURF_SKY || !trace.m_pEnt->GetAbsVelocity().IsZero();
 			if (bErase)
 				return false;
@@ -613,7 +625,7 @@ std::vector<Point_t> CAimbotProjectile::GetSplashPoints(Target_t& tTarget, std::
 		int& iType = it->second;
 
 		Solution_t solution; CalculateAngle(tInfo.m_vLocalEye, vPoint, tInfo, iSimTime, solution, false);
-		
+
 		if (solution.m_iCalculated == CalculatedEnum::Bad)
 			iType = 0;
 		else if (abs(solution.m_flTime - TICKS_TO_TIME(iSimTime)) < tInfo.m_flRadiusTime || tInfo.m_flPrimeTime && iSimTime == tInfo.m_iPrimeTime)
@@ -626,9 +638,9 @@ std::vector<Point_t> CAimbotProjectile::GetSplashPoints(Target_t& tTarget, std::
 	}
 
 	std::sort(vPointDistances.begin(), vPointDistances.end(), [&](const auto& a, const auto& b) -> bool
-		{
-			return a.second < b.second;
-		});
+			  {
+				  return a.second < b.second;
+			  });
 
 	std::vector<Point_t> vPoints = {};
 	int iSplashCount = std::min(
@@ -1390,7 +1402,6 @@ int CAimbotProjectile::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBas
 	}
 
 	int iReturn = false;
-
 	int iMulti = Vars::Aimbot::Projectile::SplashMode.Value;
 
 	auto mDirectPoints = iSplash == Vars::Aimbot::Projectile::SplashPredictionEnum::Only ? std::unordered_map<int, Vec3>() : GetDirectPoints(tTarget, tInfo);
@@ -1400,7 +1411,7 @@ int CAimbotProjectile::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBas
 		G::BoxStorage.emplace_back(tTarget.m_pEntity->m_vecOrigin() + tInfo.m_vTargetEye + vPoint * tInfo.m_flRadius / (tInfo.m_flRadius + flSize), Vec3(-1, -1, -1), Vec3(1, 1, 1), Vec3(), I::GlobalVars->curtime + 60.f, Color_t(0, 0, 0, 0), Vars::Colors::Local.Value);
 #endif
 
-	
+
 	Vec3 vAngleTo, vPredicted, vTarget;
 	int iLowestPriority = std::numeric_limits<int>::max(); float flLowestDist = std::numeric_limits<float>::max();
 	int iLowestSmoothPriority = iLowestPriority; float flLowestSmoothDist = flLowestDist;
@@ -1712,6 +1723,7 @@ static inline void CancelShot(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCm
 	}
 	}
 }
+
 
 bool CAimbotProjectile::RunMain(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 {

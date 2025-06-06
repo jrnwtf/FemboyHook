@@ -4,17 +4,43 @@
 #include "../Ticks/Ticks.h"
 #include "../Players/PlayerUtils.h"
 #include "../Aimbot/AutoRocketJump/AutoRocketJump.h"
+#include "NamedPipe/NamedPipe.h"
+#include <fstream>
+#include <format>
 
 void CMisc::RunPre(CTFPlayer* pLocal, CUserCmd* pCmd)
 {
+	// f2p voicecommandspam
+	static bool initialized = false;
+	if (!initialized)
+	{
+		m_iTokenBucket = 5;
+		m_tVoiceCommandTimer.Update(); 
+		initialized = true;
+	}
+
+	NoiseSpam(pLocal);
+	VoiceCommandSpam(pLocal);
+	ChatSpam(pLocal);
 	CheatsBypass();
 	WeaponSway();
-
+	AutoReport();
+	
+	if (I::EngineClient && I::EngineClient->IsInGame() && I::EngineClient->IsConnected())
+	{
+		static Timer namedPipeTimer{};
+		if (namedPipeTimer.Run(1.0f))
+		{
+			F::NamedPipe::UpdateLocalBotIgnoreStatus();
+		}
+	}
+	
 	if (!pLocal)
 		return;
 
 	AntiAFK(pLocal, pCmd);
 	InstantRespawnMVM(pLocal);
+	RandomVotekick(pLocal);
 
 	if (!pLocal->IsAlive() || pLocal->IsAGhost() || pLocal->m_MoveType() != MOVETYPE_WALK || pLocal->IsSwimming() || pLocal->InCond(TF_COND_SHIELD_CHARGE) || pLocal->InCond(TF_COND_HALLOWEEN_KART))
 		return;
@@ -24,7 +50,6 @@ void CMisc::RunPre(CTFPlayer* pLocal, CUserCmd* pCmd)
 	AutoJumpbug(pLocal, pCmd);
 	AutoStrafe(pLocal, pCmd);
 	AutoPeek(pLocal, pCmd);
-	MovementLock(pLocal, pCmd);
 	BreakJump(pLocal, pCmd);
 }
 
@@ -35,8 +60,10 @@ void CMisc::RunPost(CTFPlayer* pLocal, CUserCmd* pCmd, bool pSendPacket)
 
 	EdgeJump(pLocal, pCmd, true);
 	TauntKartControl(pLocal, pCmd);
-	AutoPeek(pLocal, pCmd, true);
 	FastMovement(pLocal, pCmd);
+	AutoPeek(pLocal, pCmd, true);
+	BreakShootSound(pLocal, pCmd);
+	MovementLock(pLocal, pCmd);
 }
 
 
@@ -149,7 +176,7 @@ void CMisc::MovementLock(CTFPlayer* pLocal, CUserCmd* pCmd)
 {
 	static bool bLock = false;
 
-	if (!Vars::Misc::Movement::MovementLock.Value)
+	if (!Vars::Misc::Movement::MovementLock.Value || pLocal->InCond(TF_COND_HALLOWEEN_KART))
 	{
 		bLock = false;
 		return;
@@ -196,14 +223,78 @@ void CMisc::BreakJump(CTFPlayer* pLocal, CUserCmd* pCmd)
 	pCmd->buttons |= IN_DUCK;
 }
 
+void CMisc::BreakShootSound(CTFPlayer* pLocal, CUserCmd* pCmd)
+{
+	// TODO:
+	// Find a way to properly check whenever we have switched weapons or not 
+	// (current method is too slow and other methods i've tried are not reliable)
+
+	static int iOriginalWeaponSlot = -1;
+	auto pWeapon = H::Entities.GetWeapon();
+	if (!Vars::Misc::Exploits::BreakShootSound.Value || F::Ticks.m_bDoubletap || pLocal->m_iClass() != TF_CLASS_SOLDIER || !pWeapon)
+		return;
+
+	static bool bLastWasInAttack = false;
+	static int iLastWeaponSelect = -1;
+	//static bool bSwitching = false;
+	const int iCurrSlot = pWeapon->GetSlot();
+	if (pCmd->weaponselect && pCmd->weaponselect != iLastWeaponSelect)
+	{
+		iOriginalWeaponSlot = -1;
+	}
+	auto pSwap = iCurrSlot == SLOT_SECONDARY ? pLocal->GetWeaponFromSlot(SLOT_PRIMARY) : iCurrSlot == SLOT_PRIMARY ? pLocal->GetWeaponFromSlot(SLOT_SECONDARY) : pLocal->GetWeaponFromSlot(iOriginalWeaponSlot);
+	if (pSwap && !pCmd->weaponselect)
+	{
+		const int iItemDefIdx = pSwap->m_iItemDefinitionIndex();
+		if (iItemDefIdx == Soldier_s_TheBASEJumper || iItemDefIdx == Soldier_s_Gunboats || iItemDefIdx == Soldier_s_TheMantreads)
+		{
+			pSwap = pLocal->GetWeaponFromSlot(SLOT_MELEE);
+		}
+		if ( pSwap )
+		{
+			if ( bLastWasInAttack )
+			{
+				if ( iOriginalWeaponSlot < 0 )
+				{
+					iOriginalWeaponSlot = iCurrSlot;
+					pCmd->weaponselect = pSwap->entindex( );
+					iLastWeaponSelect = pCmd->weaponselect;
+				}
+			}
+			else/* if ( true )*/
+			{
+				if ( iOriginalWeaponSlot == iCurrSlot && G::CanPrimaryAttack/*&& !G::Choking*/ )
+				{
+					iOriginalWeaponSlot = -1;
+				}
+				else if ( iOriginalWeaponSlot >= 0 && iOriginalWeaponSlot != iCurrSlot )
+				{
+					pCmd->weaponselect = pSwap->entindex( );
+					iLastWeaponSelect = pCmd->weaponselect;
+				}
+			}
+		}
+	}
+	
+	bLastWasInAttack = G::Attacking == 1 && G::CanPrimaryAttack;
+}
+
 void CMisc::AntiAFK(CTFPlayer* pLocal, CUserCmd* pCmd)
 {
 	static Timer tTimer = {};
+	m_bAntiAFK = false;
+	static auto mp_idledealmethod = U::ConVars.FindVar("mp_idledealmethod");
+	static auto mp_idlemaxtime = U::ConVars.FindVar("mp_idlemaxtime");
+	const int iIdleMethod = mp_idledealmethod->GetInt();
+	const float flMaxIdleTime = mp_idlemaxtime->GetFloat();
 
 	if (pCmd->buttons & (IN_MOVELEFT | IN_MOVERIGHT | IN_FORWARD | IN_BACK) || !pLocal->IsAlive())
 		tTimer.Update();
-	else if (Vars::Misc::Automation::AntiAFK.Value && tTimer.Run(25.f))
-		pCmd->buttons |= IN_FORWARD;
+	else if (Vars::Misc::Automation::AntiAFK.Value && iIdleMethod && tTimer.Check(flMaxIdleTime * 60.f - 10.f)) // trigger 10 seconds before kick
+	{
+		pCmd->buttons |= I::GlobalVars->tickcount % 2 ? IN_FORWARD : IN_BACK;
+		m_bAntiAFK = true;
+	}
 }
 
 void CMisc::InstantRespawnMVM(CTFPlayer* pLocal)
@@ -241,8 +332,6 @@ void CMisc::WeaponSway()
 	cl_wpn_sway_interp->SetValue(bSway ? Vars::Visuals::Viewmodel::SwayInterp.Value : 0.f);
 	cl_wpn_sway_scale->SetValue(bSway ? Vars::Visuals::Viewmodel::SwayScale.Value : 0.f);
 }
-
-
 
 void CMisc::TauntKartControl(CTFPlayer* pLocal, CUserCmd* pCmd)
 {
@@ -409,14 +498,65 @@ void CMisc::EdgeJump(CTFPlayer* pLocal, CUserCmd* pCmd, bool bPost)
 		pCmd->buttons |= IN_JUMP;
 }
 
-
-
 void CMisc::Event(IGameEvent* pEvent, uint32_t uHash)
 {
 	switch (uHash)
 	{
+	case FNV1A::Hash32Const("client_disconnect"):
+	case FNV1A::Hash32Const("client_beginconnect"):
+	case FNV1A::Hash32Const("game_newmap"):
+		m_vChatSpamLines.clear();
+		m_vKillSayLines.clear();
+		m_vAutoReplyLines.clear();
+		m_iCurrentChatSpamIndex = 0;
+		m_sLastKilledPlayerName = "";
+		m_iTokenBucket = 5; 
+		m_tVoiceCommandTimer.Update(); 
+		[[fallthrough]];
+	case FNV1A::Hash32Const("teamplay_round_start"):
+		G::LineStorage.clear();
+		G::BoxStorage.clear();
+		G::PathStorage.clear();
+		break;
 	case FNV1A::Hash32Const("player_spawn"):
 		m_bPeekPlaced = false;
+		break;
+	case FNV1A::Hash32Const("vote_maps_changed"):
+		if (Vars::Misc::Automation::AutoVoteMap.Value)
+		{
+			I::EngineClient->ClientCmd_Unrestricted(std::format("next_map_vote {}", Vars::Misc::Automation::AutoVoteMapOption.Value).c_str());
+		}
+		break;
+	case FNV1A::Hash32Const("player_death"):
+		{
+			const int attacker = I::EngineClient->GetPlayerForUserID(pEvent->GetInt("attacker"));
+			const int victim = I::EngineClient->GetPlayerForUserID(pEvent->GetInt("userid"));
+			
+			int localPlayerIdx = I::EngineClient->GetLocalPlayer();
+			if (attacker == localPlayerIdx && victim != localPlayerIdx)
+			{
+				KillSay(victim);
+			}
+		}
+		break;
+	case FNV1A::Hash32Const("player_say"):
+		{
+			const int speaker = I::EngineClient->GetPlayerForUserID(pEvent->GetInt("userid"));
+			const char* text = pEvent->GetString("text");
+			
+			int localPlayerIdx = I::EngineClient->GetLocalPlayer();
+			if (speaker != localPlayerIdx && text)
+			{
+				AutoReply(speaker, text);
+			}
+		}
+		break;
+	case FNV1A::Hash32Const("vote_started"):
+		{
+			const int target = I::EngineClient->GetPlayerForUserID(pEvent->GetInt("userid"));
+			VotekickResponse(target);
+		}
+		break;
 	}
 }
 
@@ -504,9 +644,7 @@ int CMisc::AntiBackstab(CTFPlayer* pLocal, CUserCmd* pCmd, bool bSendPacket)
 			pCmd->viewangles.x = 269.f;
 		}
 		else
-		{
 			pCmd->viewangles.x = 271.f;
-		}
 		// may slip up some auto backstabs depending on mode, though we are still able to be stabbed
 
 		return 2;
@@ -522,33 +660,18 @@ void CMisc::PingReducer()
 	if (!tTimer.Run(0.1f))
 		return;
 
+	auto pNetChan = reinterpret_cast<CNetChannel*>(I::EngineClient->GetNetChannelInfo());
+	const auto& pResource = H::Entities.GetPR( );
+	if (!pNetChan || !pResource)
+		return;
+
 	static auto cl_cmdrate = U::ConVars.FindVar("cl_cmdrate");
-	int iTarget = Vars::Misc::Exploits::PingReducer.Value ? Vars::Misc::Exploits::PingTarget.Value : cl_cmdrate->GetInt();
-	if (m_iWishCmdrate != iTarget)
-	{
-		m_iWishCmdrate = iTarget;
+	const int iCmdRate = cl_cmdrate->GetInt();
+	const int Ping = pResource->m_iPing( I::EngineClient->GetLocalPlayer( ) );
+	const int iTarget = Vars::Misc::Exploits::PingReducer.Value && ( Ping > Vars::Misc::Exploits::PingTarget.Value ) ? -1 : iCmdRate;
 
-		auto pNetChan = reinterpret_cast<CNetChannel*>(I::EngineClient->GetNetChannelInfo());
-		if (pNetChan && I::EngineClient->IsConnected())
-		{
-			NET_SetConVar tConvar = { "cl_cmdrate", std::to_string(m_iWishCmdrate).c_str() };
-			pNetChan->SendNetMsg(tConvar);
-		}
-	}
-
-	static auto sv_maxupdaterate = U::ConVars.FindVar("sv_maxupdaterate"); // force highest cl_updaterate command possible
-	iTarget = sv_maxupdaterate->GetInt();
-	if (m_iWishUpdaterate != iTarget)
-	{
-		m_iWishUpdaterate = iTarget;
-
-		auto pNetChan = reinterpret_cast<CNetChannel*>(I::EngineClient->GetNetChannelInfo());
-		if (pNetChan && I::EngineClient->IsConnected())
-		{
-			NET_SetConVar tConvar = { "cl_updaterate", std::to_string(m_iWishUpdaterate).c_str() };
-			pNetChan->SendNetMsg(tConvar);
-		}
-	}
+	NET_SetConVar cmd("cl_cmdrate", std::to_string(m_iWishCmdrate = iTarget).c_str());
+	pNetChan->SendNetMsg(cmd);
 }
 
 void CMisc::UnlockAchievements()
@@ -617,4 +740,884 @@ bool CMisc::SteamRPC()
 	I::SteamFriends->SetRichPresence("steam_player_group_size", std::to_string(Vars::Misc::SteamRPC::GroupSize.Value).c_str());
 
 	return true;
+}
+
+
+void CMisc::NoiseSpam(CTFPlayer* pLocal)
+{
+	if (!Vars::Misc::Automation::NoiseSpam.Value || !pLocal)
+		return;
+	
+	if (pLocal->m_bUsingActionSlot())
+		return;
+	
+	static float flLastSpamTime = 0.0f;
+	float flCurrentTime = SDK::PlatFloatTime();
+	if (flCurrentTime - flLastSpamTime < 0.2f) 
+		return;
+	
+	flLastSpamTime = flCurrentTime;
+	I::EngineClient->ServerCmdKeyValues(new KeyValues("use_action_slot_item_server"));
+}
+
+void CMisc::VoiceCommandSpam(CTFPlayer* pLocal)
+{
+	if (!Vars::Misc::Automation::VoiceCommandSpam.Value || !pLocal || !pLocal->IsAlive())
+		return;
+
+	float flCurrentTime = SDK::PlatFloatTime();
+	bool bUseF2PSystem = Vars::Misc::Automation::VoiceF2PMode.Value;
+	
+	// F2Pvoicecommandspam tokensystem
+	if (bUseF2PSystem)
+	{
+		// F2P token bucket system constants
+		const int maxTokens = 5;
+		const float refillInterval = 6.0f; 
+		
+		if (m_tVoiceCommandTimer.Run(refillInterval) && m_iTokenBucket < maxTokens)
+		{
+			m_iTokenBucket++;
+			SDK::Output("VoiceCommandSpam", std::format("F2P Mode: Token added, now: {}", m_iTokenBucket).c_str(), {}, true, true);
+		}
+		
+		if (m_iTokenBucket <= 0)
+			return;
+			
+		static Timer spamTimer{};
+		if (!spamTimer.Run(0.2f))
+			return;
+		
+		m_iTokenBucket--;
+	}
+	else
+	{
+		static float flLastVoiceTime = 0.0f;
+		if (flCurrentTime - flLastVoiceTime < 6.5f)
+			return;
+			
+		flLastVoiceTime = flCurrentTime;
+	}
+
+		switch (Vars::Misc::Automation::VoiceCommandSpam.Value)
+		{
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Random:
+			{
+				int menu = SDK::RandomInt(0, 2);
+				int command = SDK::RandomInt(0, 8);
+				std::string cmd = "voicemenu " + std::to_string(menu) + " " + std::to_string(command);
+				I::EngineClient->ClientCmd_Unrestricted(cmd.c_str());
+			}
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Medic:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 0");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Thanks:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 1");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::NiceShot:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 2 6");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Cheers:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 2 2");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Jeers:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 2 3");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::GoGoGo:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 2");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::MoveUp:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 3");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::GoLeft:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 4");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::GoRight:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 5");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Yes:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 6");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::No:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 0 7");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Incoming:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 1 0");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Spy:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 1 1");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Sentry:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 1 2");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::NeedTeleporter:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 1 3");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Pootis:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 1 4");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::NeedSentry:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 1 5");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::ActivateCharge:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 1 6");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::Help:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 2 0");
+			break;
+		case Vars::Misc::Automation::VoiceCommandSpamEnum::BattleCry:
+			I::EngineClient->ClientCmd_Unrestricted("voicemenu 2 1");
+			break;
+		}
+	}
+
+void CMisc::RandomVotekick(CTFPlayer* pLocal)
+{
+	if (!Vars::Misc::Automation::RandomVotekick.Value || !I::EngineClient->IsInGame() || !I::EngineClient->IsConnected())
+		return;
+
+	if (!m_tRandomVotekickTimer.Run(1.0f))
+		return;
+
+	std::vector<int> vPotentialTargets;
+
+	for (int i = 1; i <= I::EngineClient->GetMaxClients(); i++)
+	{
+		if (i == I::EngineClient->GetLocalPlayer())
+			continue;
+
+		PlayerInfo_t pi{};
+		if (!I::EngineClient->GetPlayerInfo(i, &pi) || pi.fakeplayer)
+			continue;
+
+		if (H::Entities.IsFriend(i) || 
+			H::Entities.InParty(i) ||
+			F::PlayerUtils.IsIgnored(i) ||
+			F::PlayerUtils.HasTag(i, F::PlayerUtils.TagToIndex(FRIEND_IGNORE_TAG)) ||
+			F::PlayerUtils.HasTag(i, F::PlayerUtils.TagToIndex(BOT_IGNORE_TAG)))
+			continue;
+
+		vPotentialTargets.push_back(i);
+	}
+
+	if (vPotentialTargets.empty())
+		return;
+
+
+	int iRandom = SDK::RandomInt(0, vPotentialTargets.size() - 1);
+	int iTarget = vPotentialTargets[iRandom];
+
+
+	PlayerInfo_t pi{};
+	if (I::EngineClient->GetPlayerInfo(iTarget, &pi))
+	{
+		I::ClientState->SendStringCmd(std::format("callvote Kick \"{} other\"", pi.userID).c_str());
+	}
+}
+
+
+// lmaobox if(crash){(dontcrash)} method down here
+void CMisc::ChatSpam(CTFPlayer* pLocal)
+{
+	if (!Vars::Misc::Automation::ChatSpam::Enable.Value || !pLocal || !I::EngineClient)
+	{
+		m_tChatSpamTimer.Update();
+		return;
+	}
+	
+	try
+	{
+		if (!I::EngineClient->IsInGame() || !I::EngineClient->IsConnected())
+		{
+			m_tChatSpamTimer.Update();
+			return;
+		}
+		
+		if (!pLocal->IsAlive() || pLocal->m_iTeamNum() <= 1 || pLocal->m_iClass() == TF_CLASS_UNDEFINED)
+		{
+			m_tChatSpamTimer.Update();
+			return;
+		}
+	}
+	catch (...)
+	{
+		m_tChatSpamTimer.Update();
+		return;
+	}
+		
+	if (m_vChatSpamLines.empty())
+	{
+		{
+			char gamePath[MAX_PATH];
+			GetModuleFileNameA(GetModuleHandleA("tf_win64.exe"), gamePath, MAX_PATH);
+			std::string gameDir = gamePath;
+			size_t lastSlash = gameDir.find_last_of("\\/");
+			if (lastSlash != std::string::npos)
+				gameDir = gameDir.substr(0, lastSlash);
+				
+			
+			std::vector<std::string> pathsToTry = {
+				"cat_chatspam.txt",
+				gameDir + "\\amalgam\\cat_chatspam.txt"
+			};
+			
+			bool fileLoaded = false;
+			std::string successfulPath;
+			
+			for (const auto& path : pathsToTry)
+			{
+				try
+				{
+					std::ifstream file(path);
+					if (file.is_open())
+					{
+						std::string line;
+						while (std::getline(file, line))
+						{
+							if (!line.empty())
+								m_vChatSpamLines.push_back(line);
+						}
+						file.close();
+						
+						SDK::Output("ChatSpam", std::format("Loaded {} lines from {}", m_vChatSpamLines.size(), path).c_str(), {}, true, true);
+						fileLoaded = true;
+						successfulPath = path;
+						break;
+					}
+				}
+				catch (...)
+				{
+					continue;
+				}
+			}
+			
+			if (!fileLoaded)
+			{
+				try
+				{
+					std::string defaultPath = gameDir + "\\amalgam\\cat_chatspam.txt";
+					std::ofstream newFile(defaultPath);
+					
+					if (newFile.is_open())
+					{
+						newFile << "neptune, we love boats!\n";
+						newFile << "dsc.gg/nptntf\n";
+						newFile << "neptune is open source!\n";
+						newFile << "host bots with us now :3\n";
+						newFile << "dont call me bro\n";
+						newFile.close();
+						
+						std::ifstream checkFile(defaultPath);
+						if (checkFile.is_open())
+						{
+							std::string line;
+							while (std::getline(checkFile, line))
+							{
+								if (!line.empty())
+									m_vChatSpamLines.push_back(line);
+							}
+							checkFile.close();
+							
+							SDK::Output("ChatSpam", std::format("Created and loaded default file at {}", defaultPath).c_str(), {}, true, true);
+							fileLoaded = true;
+						}
+					}
+				}
+				catch (...)
+				{
+					// File operations failed, continue to fallback
+				}
+			}
+			
+			if (!fileLoaded || m_vChatSpamLines.empty())
+			{
+				SDK::Output("ChatSpam", "Failed to load or create chat spam file, using built-in messages", {}, true, true);
+				m_vChatSpamLines.push_back("Put your chat spam lines in cat_chatspam.txt");
+				m_vChatSpamLines.push_back("chatspam is running but couldn't find cat_chatspam.txt");
+			}
+		}
+	}
+	
+	if (m_vChatSpamLines.empty())
+	{
+		return;
+	}
+	
+	float spamInterval = Vars::Misc::Automation::ChatSpam::Interval.Value;
+	if (spamInterval <= 0.2f)
+		spamInterval = 0.2f; 
+	
+	if (!m_tChatSpamTimer.Run(spamInterval))
+		return;
+		
+	std::string chatLine;
+	const size_t lineCount = m_vChatSpamLines.size();
+	
+	if (lineCount == 0)
+		return;
+	
+	try
+	{
+		if (Vars::Misc::Automation::ChatSpam::Randomize.Value)
+		{
+			// Safer random index generation
+			int max = static_cast<int>(lineCount) - 1;
+			if (max < 0) max = 0;
+			int randomIndex = SDK::RandomInt(0, max);
+			
+			// Double-check bounds for safety
+			if (randomIndex >= 0 && randomIndex < static_cast<int>(lineCount))
+				chatLine = m_vChatSpamLines[randomIndex];
+			else
+				chatLine = "[chtspm]";
+		}
+		else
+		{
+			if (m_iCurrentChatSpamIndex < 0 || m_iCurrentChatSpamIndex >= static_cast<int>(lineCount))
+				m_iCurrentChatSpamIndex = 0;
+			
+			if (m_iCurrentChatSpamIndex >= 0 && m_iCurrentChatSpamIndex < static_cast<int>(lineCount))
+			{
+				chatLine = m_vChatSpamLines[m_iCurrentChatSpamIndex];
+				m_iCurrentChatSpamIndex = (m_iCurrentChatSpamIndex + 1) % static_cast<int>(lineCount);
+			}
+			else
+			{
+				chatLine = "[ChatSpam]";
+				m_iCurrentChatSpamIndex = 0;
+			}
+		}
+		
+		// Limit message length to prevent buffer issues
+		if (chatLine.length() > 150) 
+		{
+			chatLine = chatLine.substr(0, 150);
+		}
+		
+		// Process text replacements
+		chatLine = ProcessTextReplacements(chatLine);
+		
+		std::string chatCommand;
+		if (Vars::Misc::Automation::ChatSpam::TeamChat.Value)
+			chatCommand = "say_team \"" + chatLine + "\"";
+		else
+			chatCommand = "say \"" + chatLine + "\"";
+		
+	}
+	catch (...)
+	{
+		// Silently fail if we encounter any exception during command execution
+		return;
+	}
+}
+
+void CMisc::AutoReport()
+{
+	if (!Vars::Misc::Automation::AutoReport.Value)
+		return;
+	
+	static Timer reportTimer{};
+	if (!reportTimer.Run(5.0f))
+		return;
+
+	static auto reportFunc = reinterpret_cast<void(*)(uint64_t, int)>(U::Memory.FindSignature("client.dll", "48 89 5C 24 ? 57 48 83 EC 60 48 8B D9 8B FA"));
+	if (!reportFunc)
+		return;
+	
+	if (!I::EngineClient || !I::EngineClient->IsInGame() || !I::EngineClient->IsConnected())
+		return;
+	
+	CTFPlayer* pLocal = H::Entities.GetLocal();
+	if (!pLocal)
+		return;
+	
+	for (int i = 1; i <= I::EngineClient->GetMaxClients(); i++)
+	{
+		if (i == I::EngineClient->GetLocalPlayer())
+			continue;
+		
+		CTFPlayer* pPlayer = reinterpret_cast<CTFPlayer*>(I::ClientEntityList->GetClientEntity(i));
+		if (!pPlayer || !pPlayer->IsAlive())
+			continue;
+		
+		PlayerInfo_t playerInfo{};
+		if (!I::EngineClient->GetPlayerInfo(i, &playerInfo))
+			continue;
+		
+		if (playerInfo.fakeplayer)
+			continue;
+		
+		if (F::PlayerUtils.HasTag(i, FRIEND_TAG) || F::PlayerUtils.HasTag(i, IGNORED_TAG))
+			continue;
+		
+		if (F::PlayerUtils.HasTag(i, PARTY_TAG))
+			continue;
+		
+		uint64_t steamID64 = ((uint64_t)1 << 56) | ((uint64_t)1 << 52) | ((uint64_t)1 << 32) | playerInfo.friendsID;
+		reportFunc(steamID64, 1);
+	}
+}
+
+std::string CMisc::ProcessTextReplacements(std::string text)
+{
+	if (!Vars::Misc::Automation::ChatSpam::TextReplace.Value)
+		return text;
+	
+	auto pLocal = H::Entities.GetLocal();
+	if (!pLocal)
+		return text;
+	
+	std::vector<int> allPlayers;
+	std::vector<int> enemyPlayers;
+	std::vector<int> friendlyPlayers;
+	
+	auto pResource = H::Entities.GetPR();
+	if (!pResource)
+		return text;
+	
+	int localTeam = pLocal->m_iTeamNum();
+	
+	for (int i = 1; i <= I::EngineClient->GetMaxClients(); i++)
+	{
+		if (!pResource->m_bValid(i) || !pResource->m_bConnected(i))
+			continue;
+			
+		if (i == I::EngineClient->GetLocalPlayer())
+			continue;
+			
+		PlayerInfo_t pi{};
+		if (!I::EngineClient->GetPlayerInfo(i, &pi) || pi.fakeplayer)
+			continue;
+			
+		allPlayers.push_back(i);
+		
+		int playerTeam = pResource->m_iTeam(i);
+		if (playerTeam == localTeam)
+			friendlyPlayers.push_back(i);
+		else if (playerTeam > 1) // Not spectator
+			enemyPlayers.push_back(i);
+	}
+	
+	PlayerInfo_t localPi{};
+	std::string localName = "Player";
+	if (I::EngineClient->GetPlayerInfo(I::EngineClient->GetLocalPlayer(), &localPi))
+		localName = localPi.name;
+	
+	if (text.find("%randomplayer%") != std::string::npos && !allPlayers.empty())
+	{
+		int idx = SDK::RandomInt(0, allPlayers.size() - 1);
+		int playerIdx = allPlayers[idx];
+		PlayerInfo_t pi{};
+		if (I::EngineClient->GetPlayerInfo(playerIdx, &pi))
+		{
+			std::string playerName = F::PlayerUtils.GetPlayerName(playerIdx, pi.name);
+			size_t pos;
+			while ((pos = text.find("%randomplayer%")) != std::string::npos)
+				text.replace(pos, 14, playerName);
+		}
+	}
+	
+	if (text.find("%randomenemy%") != std::string::npos && !enemyPlayers.empty())
+	{
+		int idx = SDK::RandomInt(0, enemyPlayers.size() - 1);
+		int playerIdx = enemyPlayers[idx];
+		PlayerInfo_t pi{};
+		if (I::EngineClient->GetPlayerInfo(playerIdx, &pi))
+		{
+			std::string playerName = F::PlayerUtils.GetPlayerName(playerIdx, pi.name);
+			size_t pos;
+			while ((pos = text.find("%randomenemy%")) != std::string::npos)
+				text.replace(pos, 13, playerName);
+		}
+	}
+	
+	if (text.find("%randomfriendly%") != std::string::npos && !friendlyPlayers.empty())
+	{
+		int idx = SDK::RandomInt(0, friendlyPlayers.size() - 1);
+		int playerIdx = friendlyPlayers[idx];
+		PlayerInfo_t pi{};
+		if (I::EngineClient->GetPlayerInfo(playerIdx, &pi))
+		{
+			std::string playerName = F::PlayerUtils.GetPlayerName(playerIdx, pi.name);
+			size_t pos;
+			while ((pos = text.find("%randomfriendly%")) != std::string::npos)
+				text.replace(pos, 16, playerName);
+		}
+	}
+	
+	if (text.find("%lastkilled%") != std::string::npos && !m_sLastKilledPlayerName.empty())
+	{
+		size_t pos;
+		while ((pos = text.find("%lastkilled%")) != std::string::npos)
+			text.replace(pos, 12, m_sLastKilledPlayerName);
+	}
+	
+	if (text.find("%urname%") != std::string::npos)
+	{
+		size_t pos;
+		while ((pos = text.find("%urname%")) != std::string::npos)
+			text.replace(pos, 8, localName);
+	}
+	
+	if (text.find("%team%") != std::string::npos)
+	{
+		std::string teamName = "Unknown";
+		switch (localTeam)
+		{
+		case 2: teamName = "RED"; break;
+		case 3: teamName = "BLU"; break;
+		}
+		
+		size_t pos;
+		while ((pos = text.find("%team%")) != std::string::npos)
+			text.replace(pos, 6, teamName);
+	}
+	
+	return text;
+}
+
+void CMisc::KillSay(int victim)
+{
+	if (!Vars::Misc::Automation::ChatSpam::KillSay.Value || !I::EngineClient)
+		return;
+	
+	auto pLocal = H::Entities.GetLocal();
+	if (!pLocal || !pLocal->IsAlive())
+		return;
+	
+	PlayerInfo_t victimInfo{};
+	if (I::EngineClient->GetPlayerInfo(victim, &victimInfo))
+	{
+		m_iLastKilledPlayer = victim;
+		m_sLastKilledPlayerName = F::PlayerUtils.GetPlayerName(victim, victimInfo.name);
+	}
+	
+	if (m_vKillSayLines.empty())
+	{
+		try
+		{
+			char gamePath[MAX_PATH];
+			GetModuleFileNameA(GetModuleHandleA("tf_win64.exe"), gamePath, MAX_PATH);
+			std::string gameDir = gamePath;
+			size_t lastSlash = gameDir.find_last_of("\\/");
+			if (lastSlash != std::string::npos)
+				gameDir = gameDir.substr(0, lastSlash);
+			
+			std::vector<std::string> pathsToTry = {
+				"killsay.txt",
+				gameDir + "\\amalgam\\killsay.txt"
+			};
+			
+			bool fileLoaded = false;
+			
+			for (const auto& path : pathsToTry)
+			{
+				try
+				{
+					std::ifstream file(path);
+					if (file.is_open())
+					{
+						std::string line;
+						while (std::getline(file, line))
+						{
+							if (!line.empty())
+								m_vKillSayLines.push_back(line);
+						}
+						file.close();
+						
+						SDK::Output("KillSay", std::format("Loaded {} lines from {}", m_vKillSayLines.size(), path).c_str(), {}, true, true);
+						fileLoaded = true;
+						break;
+					}
+				}
+				catch (...)
+				{
+					continue;
+				}
+			}
+			
+			if (!fileLoaded)
+			{
+				try
+				{
+					std::string defaultPath = gameDir + "\\amalgam\\killsay.txt";
+					std::ofstream newFile(defaultPath);
+					
+					if (newFile.is_open())
+					{
+						newFile << "Get owned %lastkilled%\n";
+						newFile << "Nice try %lastkilled%, better luck next time\n";
+						newFile << "%lastkilled% just got destroyed by %urname%\n";
+						newFile << "%team% > all\n";
+						newFile << "Skill issue, %lastkilled%\n";
+						newFile.close();
+						
+						std::ifstream checkFile(defaultPath);
+						if (checkFile.is_open())
+						{
+							std::string line;
+							while (std::getline(checkFile, line))
+							{
+								if (!line.empty())
+									m_vKillSayLines.push_back(line);
+							}
+							checkFile.close();
+							
+							SDK::Output("KillSay", std::format("Created and loaded default file at {}", defaultPath).c_str(), {}, true, true);
+							fileLoaded = true;
+						}
+					}
+				}
+				catch (...)
+				{
+					// File operations failed, continue to fallback
+				}
+			}
+			
+			if (!fileLoaded || m_vKillSayLines.empty())
+			{
+				SDK::Output("KillSay", "Failed to load or create killsay file, using built-in messages", {}, true, true);
+				m_vKillSayLines.push_back("Get owned %lastkilled%");
+				m_vKillSayLines.push_back("Nice try %lastkilled%, better luck next time");
+				m_vKillSayLines.push_back("%lastkilled% just got destroyed by %urname%");
+			}
+		}
+		catch (...)
+		{
+			m_vKillSayLines.push_back("Get owned %lastkilled%");
+		}
+	}
+	
+	if (m_vKillSayLines.empty())
+		return;
+	
+	std::string killsayLine;
+	const size_t lineCount = m_vKillSayLines.size();
+	
+	int randomIndex = SDK::RandomInt(0, lineCount - 1);
+	if (randomIndex >= 0 && randomIndex < static_cast<int>(lineCount))
+		killsayLine = m_vKillSayLines[randomIndex];
+	else
+		killsayLine = "Get owned %lastkilled%";
+	
+	killsayLine = ProcessTextReplacements(killsayLine);
+	
+	if (killsayLine.length() > 150)
+		killsayLine = killsayLine.substr(0, 150);
+	
+	std::string chatCommand;
+	if (Vars::Misc::Automation::ChatSpam::TeamChat.Value)
+		chatCommand = "say_team \"" + killsayLine + "\"";
+	else
+		chatCommand = "say \"" + killsayLine + "\"";
+	
+	if (I::EngineClient)
+	{
+		SDK::Output("KillSay", std::format("Sending: {}", chatCommand).c_str(), {}, true, true);
+		I::EngineClient->ClientCmd_Unrestricted(chatCommand.c_str());
+	}
+}
+
+void CMisc::AutoReply(int speaker, const char* text)
+{
+	if (!Vars::Misc::Automation::ChatSpam::AutoReply.Value || !I::EngineClient || !text)
+		return;
+	
+	auto pLocal = H::Entities.GetLocal();
+	if (!pLocal || !pLocal->IsAlive())
+		return;
+	
+	std::string message = text;
+	std::transform(message.begin(), message.end(), message.begin(), ::tolower);
+	
+	bool shouldReply = false;
+	std::vector<std::string> triggers = {"bot", "cheater", "hacker", "aimbot", "cheat", "hack"};
+	
+	for (const auto& trigger : triggers)
+	{
+		if (message.find(trigger) != std::string::npos)
+		{
+			shouldReply = true;
+			break;
+		}
+	}
+	
+	if (!shouldReply)
+		return;
+	
+	if (m_vAutoReplyLines.empty())
+	{
+		try
+		{
+			char gamePath[MAX_PATH];
+			GetModuleFileNameA(GetModuleHandleA("tf_win64.exe"), gamePath, MAX_PATH);
+			std::string gameDir = gamePath;
+			size_t lastSlash = gameDir.find_last_of("\\/");
+			if (lastSlash != std::string::npos)
+				gameDir = gameDir.substr(0, lastSlash);
+			
+			std::vector<std::string> pathsToTry = {
+				"autoreply.txt",
+				gameDir + "\\amalgam\\autoreply.txt"
+			};
+			
+			bool fileLoaded = false;
+			
+			for (const auto& path : pathsToTry)
+			{
+				try
+				{
+					std::ifstream file(path);
+					if (file.is_open())
+					{
+						std::string line;
+						while (std::getline(file, line))
+						{
+							if (!line.empty())
+								m_vAutoReplyLines.push_back(line);
+						}
+						file.close();
+						
+						SDK::Output("AutoReply", std::format("Loaded {} lines from {}", m_vAutoReplyLines.size(), path).c_str(), {}, true, true);
+						fileLoaded = true;
+						break;
+					}
+				}
+				catch (...)
+				{
+					continue;
+				}
+			}
+			
+			if (!fileLoaded)
+			{
+				try
+				{
+					std::string defaultPath = gameDir + "\\amalgam\\autoreply.txt";
+					std::ofstream newFile(defaultPath);
+					
+					if (newFile.is_open())
+					{
+						newFile << "I'm not cheating, I'm just better\n";
+						newFile << "Skill issue\n";
+						newFile << "Mad cuz bad\n";
+						newFile << "It's called skill, you should try it sometime\n";
+						newFile << "You're just bad at the game\n";
+						newFile.close();
+						
+						std::ifstream checkFile(defaultPath);
+						if (checkFile.is_open())
+						{
+							std::string line;
+							while (std::getline(checkFile, line))
+							{
+								if (!line.empty())
+									m_vAutoReplyLines.push_back(line);
+							}
+							checkFile.close();
+							
+							SDK::Output("AutoReply", std::format("Created and loaded default file at {}", defaultPath).c_str(), {}, true, true);
+							fileLoaded = true;
+						}
+					}
+				}
+				catch (...)
+				{
+					// File operations failed, continue to fallback
+				}
+			}
+			
+			if (!fileLoaded || m_vAutoReplyLines.empty())
+			{
+				SDK::Output("AutoReply", "Failed to load or create autoreply file, using built-in messages", {}, true, true);
+				m_vAutoReplyLines.push_back("I'm not cheating, I'm just better");
+				m_vAutoReplyLines.push_back("Skill issue");
+				m_vAutoReplyLines.push_back("Mad cuz bad");
+			}
+		}
+		catch (...)
+		{
+			m_vAutoReplyLines.push_back("I'm not cheating, I'm just better");
+		}
+	}
+	
+	if (m_vAutoReplyLines.empty())
+		return;
+	
+	PlayerInfo_t speakerInfo{};
+	std::string speakerName;
+	if (I::EngineClient->GetPlayerInfo(speaker, &speakerInfo))
+		speakerName = F::PlayerUtils.GetPlayerName(speaker, speakerInfo.name);
+	else
+		speakerName = "Player";
+	
+	std::string replyLine;
+	const size_t lineCount = m_vAutoReplyLines.size();
+	
+	int randomIndex = SDK::RandomInt(0, lineCount - 1);
+	if (randomIndex >= 0 && randomIndex < static_cast<int>(lineCount))
+		replyLine = m_vAutoReplyLines[randomIndex];
+	else
+		replyLine = "I'm not cheating, I'm just better";
+	
+	replyLine = ProcessTextReplacements(replyLine);
+	
+	if (replyLine.length() > 150)
+		replyLine = replyLine.substr(0, 150);
+	
+	std::string chatCommand;
+	if (Vars::Misc::Automation::ChatSpam::TeamChat.Value)
+		chatCommand = "say_team \"" + replyLine + "\"";
+	else
+		chatCommand = "say \"" + replyLine + "\"";
+	
+	if (I::EngineClient)
+	{
+		SDK::Output("AutoReply", std::format("Sending: {}", chatCommand).c_str(), {}, true, true);
+		I::EngineClient->ClientCmd_Unrestricted(chatCommand.c_str());
+	}
+}
+
+void CMisc::VotekickResponse(int target)
+{
+	if (!Vars::Misc::Automation::ChatSpam::VotekickResponse.Value || !I::EngineClient)
+		return;
+	
+	auto pLocal = H::Entities.GetLocal();
+	if (!pLocal)
+		return;
+	
+	int localPlayer = I::EngineClient->GetLocalPlayer();
+	bool isLocalTarget = (target == localPlayer);
+	bool isFriendTarget = H::Entities.IsFriend(target);
+	bool isPartyTarget = H::Entities.InParty(target);
+	bool isBoatTarget = F::PlayerUtils.HasTag(target, F::PlayerUtils.TagToIndex(BOT_IGNORE_TAG));
+	
+	std::string response;
+	
+	if (isLocalTarget)
+	{
+		response = "f2, false claim";
+	}
+	else if (isFriendTarget || isPartyTarget || isBoatTarget)
+	{
+		response = "f2, they're legit";
+	}
+	else
+	{
+		response = "f1, cheater";
+	}
+	
+	std::string chatCommand;
+	if (Vars::Misc::Automation::ChatSpam::TeamChat.Value)
+		chatCommand = "say_team \"" + response + "\"";
+	else
+		chatCommand = "say \"" + response + "\"";
+	
+	if (I::EngineClient)
+	{
+		SDK::Output("VotekickResponse", std::format("Sending: {}", chatCommand).c_str(), {}, true, true);
+		I::EngineClient->ClientCmd_Unrestricted(chatCommand.c_str());
+	}
 }

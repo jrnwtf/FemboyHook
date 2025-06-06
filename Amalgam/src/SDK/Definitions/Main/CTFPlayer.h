@@ -117,7 +117,7 @@ public:
 	NETVAR(m_nHalloweenBombHeadStage, int, "CTFPlayer", "m_nHalloweenBombHeadStage");
 	NETVAR(m_nPlayerCondEx2, int, "CTFPlayer", "m_nPlayerCondEx2");
 	NETVAR(m_nPlayerCondEx3, int, "CTFPlayer", "m_nPlayerCondEx3");
-	NETVAR(m_nStreaks, void*, "CTFPlayer", "m_nStreaks");
+	//NETVAR(m_nStreaks, void*, "CTFPlayer", "m_nStreaks");
 	NETVAR(m_unTauntSourceItemID_Low, int, "CTFPlayer", "m_unTauntSourceItemID_Low");
 	NETVAR(m_unTauntSourceItemID_High, int, "CTFPlayer", "m_unTauntSourceItemID_High");
 	NETVAR(m_flRuneCharge, float, "CTFPlayer", "m_flRuneCharge");
@@ -199,7 +199,6 @@ public:
 	NETVAR_OFF(m_bTauntForceMoveForward, bool, "CTFPlayer", "m_bAllowMoveDuringTaunt", 1);
 
 	VIRTUAL(GetMaxHealth, int, 107, this);
-	VIRTUAL(ThirdPersonSwitch, void, 256, this);
 
 	SIGNATURE_ARGS(CalculateMaxSpeed, float, TeamFortress, (bool bIgnoreSpecialAbility = false), this, bIgnoreSpecialAbility);
 	SIGNATURE(IsPlayerOnSteamFriendsList, bool, CTFPlayer, this, this);
@@ -219,6 +218,36 @@ public:
 	bool IsMarked();
 	bool CanAttack(bool bCloak = true, bool bLocal = true);
 	float GetCritMult();
+
+	int& m_nStreaks( int index )
+	{
+		static int nOffset = U::NetVars.GetNetVar( "CTFPlayer", "m_nStreaks" );
+		return ( &( *reinterpret_cast< int* >( uintptr_t( this ) + nOffset ) ) )[index];
+	}
+
+	inline bool IsFriend()
+	{
+		return S::CTFPlayer_IsPlayerOnSteamFriendsList.Call<bool>(this, this);
+	}
+
+	inline float GetInvisPercentage()
+	{
+		static auto tf_spy_invis_time = I::CVar->FindVar("tf_spy_invis_time");
+		const float flInvisTime = tf_spy_invis_time ? tf_spy_invis_time->GetFloat() : 1.f;
+		const float GetInvisPercent = Math::RemapVal(m_flInvisChangeCompleteTime() - I::GlobalVars->curtime, flInvisTime, 0.f, 0.f, 100.f);
+
+		return GetInvisPercent;
+	}
+	
+	inline float TeamFortress_CalculateMaxSpeed(bool bIgnoreSpecialAbility = false)
+	{
+		return S::TeamFortress_CalculateMaxSpeed.Call<float>(this, bIgnoreSpecialAbility);
+	}
+	
+	inline void ThirdPersonSwitch(/*bool bThirdperson*/)
+	{
+		return reinterpret_cast<void(*)(void*/*, bool*/)>(U::Memory.GetVFunc(this, 256))(this/*, bThirdperson*/);
+	};
 };
 
 class CTFRagdoll : public CBaseFlex

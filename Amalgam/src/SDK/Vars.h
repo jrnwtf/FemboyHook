@@ -68,8 +68,7 @@ public:
 		m_iType = typeid(T).hash_code();
 		m_sName = sName;
 		m_iFlags = iFlags;
-
-		m_vTitle = vTitle;
+				m_vTitle = vTitle;
 		m_sSection = sSection;
 		m_vValues = vValues;
 		m_sExtra = sNone;
@@ -114,7 +113,7 @@ public:
 
 		G::Vars.push_back(this);
 	}
-
+	
 	inline T& operator[](int i)
 	{
 		return Map[i];
@@ -170,9 +169,13 @@ public:
 
 namespace Vars
 {
+	NAMESPACE_BEGIN(Config)
+		CVar(LoadDebugSettings, "Load debug settings", false);
+	NAMESPACE_END(Config);
+
 	NAMESPACE_BEGIN(Menu)
-		CVar(CheatTitle, "Cheat title", std::string("Amalgam"), VISUAL | DROPDOWN_AUTOUPDATE);
-		CVar(CheatTag, "Cheat tag", std::string("[Amalgam]"), VISUAL);
+		CVar(CheatTitle, "Cheat title", std::string("neptune"), VISUAL | DROPDOWN_AUTOUPDATE);
+		CVar(CheatTag, "Cheat tag", std::string("[neptune]"), VISUAL);
 		CVar(MenuPrimaryKey, "Primary key", VK_INSERT, NOBIND);
 		CVar(MenuSecondaryKey, "Secondary key", VK_F3, NOBIND);
 
@@ -181,8 +184,8 @@ namespace Vars
 		CVar(MenuShowsBinds, "Menu shows binds", false, NOBIND);
 
 		CVarEnum(Indicators, "Indicators", 0b00000, VISUAL | DROPDOWN_MULTI, nullptr,
-			VA_LIST("Ticks", "Crit hack", "Spectators", "Ping", "Conditions", "Seed prediction"),
-			Ticks = 1 << 0, CritHack = 1 << 1, Spectators = 1 << 2, Ping = 1 << 3, Conditions = 1 << 4, SeedPrediction = 1 << 5);
+			VA_LIST("Ticks", "Crit hack", "Spectators", "Ping", "Conditions", "Seed prediction", "Navbot"),
+			Ticks = 1 << 0, CritHack = 1 << 1, Spectators = 1 << 2, Ping = 1 << 3, Conditions = 1 << 4, SeedPrediction = 1 << 5, NavBot = 1 << 6);
 
 		CVar(BindsDisplay, "Binds display", DragBox_t(100, 100), NOBIND);
 		CVar(TicksDisplay, "Ticks display", DragBox_t(), NOBIND);
@@ -191,6 +194,7 @@ namespace Vars
 		CVar(PingDisplay, "Ping display", DragBox_t(), NOBIND);
 		CVar(ConditionsDisplay, "Conditions display", DragBox_t(), NOBIND);
 		CVar(SeedPredictionDisplay, "Seed prediction display", DragBox_t(), NOBIND);
+		CVar(NavBotDisplay, "Navbot display", DragBox_t(), NOBIND);
 
 		CVar(Scale, "Scale", 1.f, NOBIND | SLIDER_MIN | SLIDER_PRECISION | SLIDER_NOAUTOUPDATE, 0.75f, 2.f, 0.25f);
 		CVar(CheapText, "Cheap text", false);
@@ -205,6 +209,7 @@ namespace Vars
 
 	NAMESPACE_BEGIN(Colors)
 		CVar(FOVCircle, "FOV circle color", Color_t(255, 255, 255, 100), VISUAL);
+		CVar(NoSpread, "Nospread color", Color_t(75, 175, 255, 255), VISUAL);
 		CVar(Relative, "Relative colors", false, VISUAL);
 		CVar(TeamRed, "RED color", Color_t(225, 60, 60, 255), VISUAL);
 		CVar(TeamBlu, "BLU color", Color_t(75, 175, 225, 255), VISUAL);
@@ -265,6 +270,10 @@ namespace Vars
 		CVar(BoundHitboxFaceClipped, "Bound hitbox face clipped color", Color_t(255, 255, 255, 0), VISUAL);
 
 		CVar(SpellFootstep, "Spell footstep color", Color_t(255, 255, 255, 255), VISUAL);
+		CVar(NavbotPath, "Navbot path color", Color_t(255, 255, 0, 255), VISUAL);
+		CVar(NavbotArea, "Navbot area color", Color_t(0, 255, 0, 255), VISUAL);
+		CVar(NavbotBlacklist, "Navbot blacklisted color", Color_t(255, 0, 0, 255), VISUAL);
+		CVar(NavbotCool, "Cool areas color", Color_t(0, 150, 255, 180), VISUAL);
 	NAMESPACE_END(Colors);
 
 	NAMESPACE_BEGIN(Aimbot)
@@ -281,7 +290,7 @@ namespace Vars
 			CVarEnum(Ignore, "Ignore", 0b000000000, DROPDOWN_MULTI, nullptr,
 				VA_LIST("Friends", "Party", "Invulnerable", "Cloaked", "Unsimulated players", "Dead Ringer", "Vaccinator", "Disguised", "Taunting"),
 				Friends = 1 << 0, Party = 1 << 1, Invulnerable = 1 << 2, Cloaked = 1 << 3, Unsimulated = 1 << 4, DeadRinger = 1 << 5, Vaccinator = 1 << 6, Disguised = 1 << 7, Taunting = 1 << 8);
-			CVar(AimFOV, "Aim FOV", 30.f, SLIDER_CLAMP | SLIDER_PRECISION, 0.f, 180.f);
+			CVar(AimFOV, "Aim FOV", 30.f, SLIDER_CLAMP | SLIDER_PRECISION, 0.f, 360.f);
 			CVar(MaxTargets, "Max targets", 2, SLIDER_MIN, 1, 6);
 			CVar(IgnoreCloak, "Ignore cloak", 100.f, SLIDER_CLAMP | SLIDER_PRECISION, 0.f, 100.f, 10.f, "%g%%");
 			CVar(AssistStrength, "Assist strength", 25.f, SLIDER_CLAMP | SLIDER_PRECISION, 0.f, 100.f, 1.f, "%g%%");
@@ -289,6 +298,7 @@ namespace Vars
 			CVar(AutoShoot, "Auto shoot", true);
 			CVar(FOVCircle, "FOV Circle", true);
 			CVar(NoSpread, "No spread", false);
+			CVar(PrioritizeNavbot, "Prioritize navbot target", false);
 
 			CVar(HitscanPeek, "Hitscan peek", 1, NOSAVE | DEBUGVAR, 0, 5);
 			CVar(PeekDTOnly, "Peek DT only", true, NOSAVE | DEBUGVAR);
@@ -310,10 +320,19 @@ namespace Vars
 				Tapfire = 1 << 0, WaitForHeadshot = 1 << 1, WaitForCharge = 1 << 2, ScopedOnly = 1 << 3, AutoScope = 1 << 4, AutoRev = 1 << 5, ExtinguishTeam = 1 << 6);
 			CVar(PointScale, "Point scale", 0.f, SLIDER_CLAMP | SLIDER_PRECISION, 0.f, 100.f, 5.f, "%g%%");
 			CVar(TapFireDist, "Tapfire distance", 1000.f, SLIDER_MIN | SLIDER_PRECISION, 250.f, 1000.f, 50.f);
+			CVar(TargetEveryone, "Target everyone directly", false);
+			
+			CVar(ShootingDelayEnabled, "Shooting delay enabled", false);
+			CVar(ShootingDelay, "Shooting delay", 1.0f, SLIDER_MIN | SLIDER_PRECISION, 0.1f, 5.0f, 0.1f, "%g seconds");
 
 			CVar(BoneSizeSubtract, "Bone size subtract", 1.f, NOSAVE | DEBUGVAR | SLIDER_MIN, 0.f, 4.f, 0.25f);
 			CVar(BoneSizeMinimumScale, "Bone size minimum scale", 1.f, NOSAVE | DEBUGVAR | SLIDER_CLAMP, 0.f, 1.f, 0.1f);
-		SUBNAMESPACE_END(HITSCAN);
+			CVar(LowFPSThreshold, "Low FPS threshold", 20.f, SLIDER_MIN | SLIDER_PRECISION, 5.f, 60.f, 5.f, "%g FPS");
+			CVarEnum(LowFPSOptimizations, "Low FPS optimizations", 0b00111, DROPDOWN_MULTI, nullptr,
+				VA_LIST("Target everyone directly", "Reduce hitboxes", "Simplify hitbox scans", "Skip backtracking records", "Use faster visibility checks", "Limit shooting rate", "Only target closest enemy", "Disable bullet tracers", "Reduce view model effects", "Skip non-essential calculations", "Disable extra visual processing", "Reduce animation processing", "Adaptive tick processing", "Skip sound processing", "Simplified collision checks", "Dynamic prediction quality", "Reduce memory usage", "FOV-based culling", "Process targets less frequently"),
+				TargetAll = 1 << 0, ReduceHitboxes = 1 << 1, SimplifyScans = 1 << 2, SkipBacktracking = 1 << 3, FastVisChecks = 1 << 4, LimitShootingRate = 1 << 5, OnlyTargetClosest = 1 << 6, DisableBulletTracers = 1 << 7, ReduceViewModelEffects = 1 << 8, SkipNonEssentialCalculations = 1 << 9, DisableExtraVisualProcessing = 1 << 10, ReduceAnimationProcessing = 1 << 11, AdaptiveTickProcessing = 1 << 12, SkipSoundProcessing = 1 << 13, SimplifiedCollision = 1 << 14, DynamicPredictionQuality = 1 << 15, ReduceMemoryUsage = 1 << 16, FOVBasedCulling = 1 << 17, ReduceTargetProcessing = 1 << 18);
+			CVar(LowFPSShootingDelay, "Low FPS shooting delay", 0.5f, SLIDER_MIN | SLIDER_PRECISION, 0.2f, 2.0f, 0.1f, "%g seconds");
+		SUBNAMESPACE_END(Hitscan);
 
 		SUBNAMESPACE_BEGIN(Projectile)
 			CVarEnum(StrafePrediction, VA_LIST("Predict", "Strafe prediction"), 0b11, DROPDOWN_MULTI, "Off",
@@ -323,8 +342,8 @@ namespace Vars
 				VA_LIST("Off", "Include", "Prefer", "Only"),
 				Off, Include, Prefer, Only);
 			CVarEnum(AutoDetonate, "Auto detonate", 0b00, DROPDOWN_MULTI, "Off",
-				VA_LIST("Stickies", "Flares", "##Divider", "Prevent self damage", "Ignore cloak"),
-				Stickies = 1 << 0, Flares = 1 << 1, PreventSelfDamage = 1 << 2, IgnoreCloak = 1 << 3);
+				VA_LIST("Stickies", "Flares", "##Divider", "Damage priority", "Prevent self damage"),
+				Stickies = 1 << 0, Flares = 1 << 1, MaxDamage = 1 << 2, PreventSelfDamage = 1 << 3);
 			CVarEnum(AutoAirblast, "Auto airblast", 0b000, DROPDOWN_MULTI, "Off", // todo: implement advanced redirect!!
 				VA_LIST("Enabled", "##Divider", "Redirect", "Ignore FOV"),
 				Enabled = 1 << 0, Redirect = 1 << 1, IgnoreFOV = 1 << 2);
@@ -390,6 +409,7 @@ namespace Vars
 			CVarEnum(MovesimFrictionFlags, "Movesim friction flags", 0b01, NOSAVE | DEBUGVAR | DROPDOWN_MULTI, nullptr,
 				VA_LIST("Run reduce", "Calculate increase"),
 				RunReduce = 1 << 0, CalculateIncrease = 1 << 1);
+			CVar(AutodetAccountPing, "Auto detonate account for ping", true, DEBUGVAR);
 		SUBNAMESPACE_END(Projectile);
 
 		SUBNAMESPACE_BEGIN(Melee)
@@ -397,6 +417,22 @@ namespace Vars
 			CVar(IgnoreRazorback, "Ignore razorback", true);
 			CVar(SwingPrediction, "Swing prediction", false);
 			CVar(WhipTeam, "Whip team", false);
+
+			SUBNAMESPACE_BEGIN(AutoEngie)
+				CVarEnum(AutoRepair, "Auto repair", 0b111, DROPDOWN_MULTI, "Off",
+					VA_LIST("Sentrygun","Dispenser", "Teleporter"),
+					Sentry = 1 << 0, Dispenser = 1 << 1, Teleporter = 1 << 2);
+				CVarEnum(AutoRepairPrio, "Repair priority", 0, NONE, nullptr, 
+					VA_LIST("None", "Sentrygun", "Dispenser", "Teleporter"),
+					None, Sentry, Dispenser, Teleporter);
+				CVarEnum(AutoUpgrade, "Auto upgrade", 0b111, DROPDOWN_MULTI, "Off",
+					VA_LIST("Sentrygun", "Dispenser", "Teleporter"),
+					Sentry = 1 << 0, Dispenser = 1 << 1, Teleporter = 1 << 2);
+
+				CVar(AutoUpgradeSentryLVL, "Sentry LVL", 3, SLIDER_CLAMP, 1, 3);
+				CVar(AutoUpgradeDispenserLVL, "Dispenser LVL", 3, SLIDER_CLAMP, 1, 3);
+				CVar(AutoUpgradeTeleporterLVL, "Teleporter LVL", 2, SLIDER_CLAMP, 1, 3);
+			SUBNAMESPACE_END(AutoEngie);
 
 			CVar(SwingTicks, "Swing ticks", 13, NOSAVE | DEBUGVAR, 10, 14);
 			CVar(SwingPredictLag, "Swing predict lag", true, NOSAVE | DEBUGVAR);
@@ -407,14 +443,33 @@ namespace Vars
 		SUBNAMESPACE_BEGIN(Healing)
 			CVar(AutoHeal, "Auto heal", false);
 			CVar(FriendsOnly, VA_LIST("Friends only", "Heal friends only"), false);
-			CVar(AutoVaccinator, "Auto vaccinator", false);
-			CVar(ActivateOnVoice, "Activate on voice", false);
-
 			CVar(AutoVaccinatorBulletScale, "Auto vaccinator bullet scale", 100.f, NOSAVE | DEBUGVAR | SLIDER_MIN | SLIDER_PRECISION, 0.f, 200.f, 10.f, "%g%%");
 			CVar(AutoVaccinatorBlastScale, "Auto vaccinator blast scale", 100.f, NOSAVE | DEBUGVAR | SLIDER_MIN | SLIDER_PRECISION, 0.f, 200.f, 10.f, "%g%%");
 			CVar(AutoVaccinatorFireScale, "Auto vaccinator fire scale", 100.f, NOSAVE | DEBUGVAR | SLIDER_MIN | SLIDER_PRECISION, 0.f, 200.f, 10.f, "%g%%");
+			CVar(FBotTargetOnly, "FBot target only", false);
+			CVar(ActivateOnVoice, "Activate on voice", false);
+			CVar(AutoUber, "Auto uber", false);
+			CVar(PreserveUber, "Preserve uber when safe", true);
+			CVar(PatientLowHealth, "Pop on patient low health", true);
+			CVar(SelfLowHealth, "Pop on self low health", true);
+			CVar(HealthThreshold, "Health threshold %", 30, SLIDER_CLAMP, 10, 50, 5);
+			CVar(PopOnMultipleEnemies, "Pop on multiple enemies", true);
+			CVar(EnemyCountThreshold, "Enemy count threshold", 3, SLIDER_CLAMP, 2, 6, 1);
+			CVar(PopOnDangerProjectiles, "Pop on danger projectiles", true);
+			CVar(AutoVaccinator, "Auto vaccinator", false);
+			CVarEnum(VaccinatorMode, "Vaccinator mode", 0, 0, nullptr, 
+				VA_LIST("Auto", "Manual"),
+				Auto = 0, Manual = 1);
+			CVarEnum(VaccinatorResist, "Manual resistance", 0, 0, nullptr, 
+				VA_LIST("Bullet", "Blast", "Fire"),
+				Bullet = 0, Blast = 1, Fire = 2);
+			CVar(VaccinatorSmart, "Smart detection (analyze damage)", true);
+			CVar(VaccinatorClassBased, "Consider nearby enemy classes", true);
+			CVar(VaccinatorMultiResist, "Cycle between multiple resistances", false);
+			CVar(VaccinatorDelay, "Resistance switch delay", 0.5f, SLIDER_MIN | SLIDER_PRECISION, 0.1f, 2.0f, 0.1f);
+			CVar(VaccinatorRange, "Enemy detection range", 1000.0f, SLIDER_CLAMP, 500.0f, 2000.0f, 100.0f);
 		SUBNAMESPACE_END(Healing);
-	NAMESPACE_END(AIMBOT);
+	NAMESPACE_END(Aimbot);
 	
 	NAMESPACE_BEGIN(CritHack, Crit Hack)
 		CVar(ForceCrits, "Force crits", false);
@@ -440,7 +495,7 @@ namespace Vars
 		CVar(WarpRate, "Warp rate", 22, SLIDER_CLAMP, 2, 22);
 		CVar(PassiveRecharge, "Passive recharge", 0, SLIDER_CLAMP, 0, 67);
 		CVar(RechargeLimit, "Recharge limit", 24, SLIDER_CLAMP, 1, 24);
-	NAMESPACE_END(DoubleTap)
+	NAMESPACE_END(DoubleTap);
 
 	NAMESPACE_BEGIN(Fakelag)
 		CVarEnum(Fakelag, "Fakelag", 0, NONE, nullptr,
@@ -492,6 +547,7 @@ namespace Vars
 		CVar(MinWalk, "Minwalk", true);
 		CVar(AntiOverlap, "Anti-overlap", false);
 		CVar(InvalidShootPitch, "Hide pitch on shot", false);
+		CVar(TauntSpin, "Taunt Spin", false);
 	NAMESPACE_END(AntiAim);
 
 	NAMESPACE_BEGIN(Resolver)
@@ -512,32 +568,40 @@ namespace Vars
 			VA_LIST("Invalid pitch", "Packet choking", "Aim flicking", "Duck Speed"),
 			InvalidPitch = 1 << 0, PacketChoking = 1 << 1, AimFlicking = 1 << 2, DuckSpeed = 1 << 3);
 		CVar(DetectionsRequired, "Detections required", 10, SLIDER_MIN, 0, 50);
+		CVar(AutoIgnoreThai, "Auto-ignore Thai", true);
 		CVar(MinimumChoking, "Minimum choking", 20, SLIDER_MIN, 4, 22);
 		CVar(MinimumFlick, "Minimum flick angle", 20.f, SLIDER_PRECISION, 10.f, 30.f); // min flick size to suspect
 		CVar(MaximumNoise, "Maximum flick noise", 1.f, SLIDER_PRECISION, 1.f, 10.f); // max difference between angles before and after flick
 	NAMESPACE_END(CheaterDetection);
 
 	NAMESPACE_BEGIN(ESP)
+		// Enum(YawArrowsStyle, Default, Modern);
+		// CVarValues(YawArrowsStyle, "Yaw arrows style", 0, VISUAL, nullptr, "Default", "Modern");
 		CVarEnum(Draw, VA_LIST("Draw", "Draw ESP"), 0b0, VISUAL | DROPDOWN_MULTI, nullptr,
 			VA_LIST("Players", "Buildings", "Projectiles", "Objective", "NPCs", "Health", "Ammo", "Money", "Powerups", "Bombs", "Spellbook", "Gargoyle"),
 			Players = 1 << 0, Buildings = 1 << 1, Projectiles = 1 << 2, Objective = 1 << 3, NPCs = 1 << 4, Health = 1 << 5, Ammo = 1 << 6, Money = 1 << 7, Powerups = 1 << 8, Bombs = 1 << 9, Spellbook = 1 << 10, Gargoyle = 1 << 11);
 		CVarEnum(Player, VA_LIST("Player", "Player ESP"), 0b0, VISUAL | DROPDOWN_MULTI, nullptr,
-			VA_LIST("Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Box", "Distance", "Bones", "Health bar", "Health text", "Uber bar", "Uber text", "Class icon", "Class text", "Weapon icon", "Weapon text", "Priority", "Labels", "Buffs", "Debuffs", "Misc", "Lag compensation", "Ping", "KDR"),
-			Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, Bones = 1 << 9, HealthBar = 1 << 10, HealthText = 1 << 11, UberBar = 1 << 12, UberText = 1 << 13, ClassIcon = 1 << 14, ClassText = 1 << 15, WeaponIcon = 1 << 16, WeaponText = 1 << 17, Priority = 1 << 18, Labels = 1 << 19, Buffs = 1 << 20, Debuffs = 1 << 21, Misc = 1 << 22, LagCompensation = 1 << 23, Ping = 1 << 24, KDR = 1 << 25);
+			VA_LIST("Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Name background", "Box", "Distance", "Bones", "Health bar", "Health bar border", "Health text", "Uber bar", "Uber text", "Class icon", "Class text", "Weapon icon", "Weapon text", "Priority", "Labels", "Buffs", "Debuffs", "Misc", "Lag compensation", "Ping", "KDR", "That's how mafia works"),
+			Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, NameBackground = 1 << 7, Box = 1 << 8, Distance = 1 << 9, Bones = 1 << 10, HealthBar = 1 << 11, HealthBarBorder = 1 << 12, HealthText = 1 << 13, UberBar = 1 << 14, UberText = 1 << 15, ClassIcon = 1 << 16, ClassText = 1 << 17, WeaponIcon = 1 << 18, WeaponText = 1 << 19, Priority = 1 << 20, Labels = 1 << 21, Buffs = 1 << 22, Debuffs = 1 << 23, Misc = 1 << 24, LagCompensation = 1 << 25, Ping = 1 << 26, KDR = 1 << 27, ThatsHowMafiaWorks = 1 << 28);
 		CVarEnum(Building, VA_LIST("Building", "Building ESP"), 0b0, VISUAL | DROPDOWN_MULTI, nullptr,
-			VA_LIST("Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Box", "Distance", "Health bar", "Health text", "Owner", "Level", "Flags"),
-			Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, HealthBar = 1 << 9, HealthText = 1 << 10, Owner = 1 << 11, Level = 1 << 12, Flags = 1 << 13);
+			VA_LIST("Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Name background", "Box", "Distance", "Health bar", "Health text", "Owner", "Level", "Flags"),
+			Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, NameBackground = 1 << 7, Box = 1 << 8, Distance = 1 << 9, HealthBar = 1 << 10, HealthText = 1 << 11, Owner = 1 << 12, Level = 1 << 13, Flags = 1 << 14);
 		CVarEnum(Projectile, VA_LIST("Projectile", "Projectile ESP"), 0b0, VISUAL | DROPDOWN_MULTI, nullptr,
-			VA_LIST("Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Box", "Distance", "Owner", "Flags"),
-			Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, Box = 1 << 7, Distance = 1 << 8, Owner = 1 << 9, Flags = 1 << 10);
+			VA_LIST("Enemy", "Team", "Local", "Prioritized", "Friends", "Party", "##Divider", "Name", "Name background", "Box", "Distance", "Owner", "Flags"),
+			Enemy = 1 << 0, Team = 1 << 1, Local = 1 << 2, Prioritized = 1 << 3, Friends = 1 << 4, Party = 1 << 5, Name = 1 << 6, NameBackground = 1 << 7, Box = 1 << 8, Distance = 1 << 9, Owner = 1 << 10, Flags = 1 << 11);
 		CVarEnum(Objective, VA_LIST("Objective", "Objective ESP"), 0b0, VISUAL | DROPDOWN_MULTI, nullptr,
-			VA_LIST("Enemy", "Team", "##Divider", "Name", "Box", "Distance", "Flags", "Intel return time"),
-			Enemy = 1 << 0, Team = 1 << 1, Name = 1 << 2, Box = 1 << 3, Distance = 1 << 4, Flags = 1 << 5, IntelReturnTime = 1 << 6);
+			VA_LIST("Enemy", "Team", "##Divider", "Name", "Name background", "Box", "Distance", "Flags", "Intel return time"),
+			Enemy = 1 << 0, Team = 1 << 1, Name = 1 << 2, NameBackground = 1 << 3, Box = 1 << 4, Distance = 1 << 5, Flags = 1 << 6, IntelReturnTime = 1 << 7);
 
+		CVar(Dist2Alpha, "Distance to alpha", false, VISUAL);
+		CVar(MaxDist, "Max render distance", 2048, VISUAL | SLIDER_CLAMP, 512, 4096, 128);
 		CVar(ActiveAlpha, "Active alpha", 255, VISUAL | SLIDER_CLAMP, 0, 255, 5);
 		CVar(DormantAlpha, "Dormant alpha", 50, VISUAL | SLIDER_CLAMP, 0, 255, 5);
 		CVar(DormantDuration, "Dormant duration", 1.f, VISUAL | SLIDER_CLAMP | SLIDER_PRECISION, 0.015f, 5.0f, 0.1f, "%gs");
 		CVar(DormantPriority, "Dormant priority only", false, VISUAL);
+		CVar(BackgroundOpacity, "Background opacity", 200, VISUAL | SLIDER_CLAMP, 0, 255, 5);
+		CVar(HealthBarBorder, "Health bar border", false, VISUAL);
+		
 
 		SUBNAMESPACE_BEGIN(FOVArrows, Out of FOV arrows)
 			CVar(Enabled, VA_LIST("Enabled", "Out of FOV arrows enabled"), false, VISUAL);
@@ -647,17 +711,25 @@ namespace Vars
 			CVar(Ragdolls, VA_LIST("Ragdolls", "Enemy ragdoll glow"), false, VISUAL);
 			CVar(Buildings, VA_LIST("Buildings", "Enemy building glow"), false, VISUAL);
 			CVar(Projectiles, VA_LIST("Projectiles", "Enemy projectile glow"), false, VISUAL);
-				
+			
+			CVar(Dist2Alpha, VA_LIST("Distance to alpha", "Enemy distance to alpha glow"), true, VISUAL);
+			CVar(MaxDist, VA_LIST("Max render distance", "Enemy max render distance glow"), 2048, VISUAL | SLIDER_MIN, 512, 4096, 128);
+			CVar(MinDist, VA_LIST("Min render distance", "Enemy min render distance glow"), 256, VISUAL | SLIDER_MIN | SLIDER_CLAMP, 0, 2048, 128);
+
 			CVar(Stencil, VA_LIST("Stencil scale", "Enemy stencil scale"), 1, VISUAL | SLIDER_MIN, 0, 10);
 			CVar(Blur, VA_LIST("Blur scale", "Enemy blur scale"), 0, VISUAL | SLIDER_MIN, 0, 10);
-		SUBNAMESPACE_END(Enemy)
-			
+		SUBNAMESPACE_END(Enemy);
+
 		SUBNAMESPACE_BEGIN(Team, Team Glow)
 			CVar(Players, VA_LIST("Players", "Team player glow"), false, VISUAL);
 			CVar(Ragdolls, VA_LIST("Ragdolls", "Team ragdoll glow"), false, VISUAL);
 			CVar(Buildings, VA_LIST("Buildings", "Team building glow"), false, VISUAL);
 			CVar(Projectiles, VA_LIST("Projectiles", "Team projectile glow"), false, VISUAL);
 				
+			CVar(Dist2Alpha, VA_LIST("Distance to alpha", "Team distance to alpha glow"), true, VISUAL);
+			CVar(MaxDist, VA_LIST("Max render distance", "Team max render distance glow"), 2048, VISUAL | SLIDER_MIN, 512, 4096, 128);
+			CVar(MinDist, VA_LIST("Min render distance", "Team min render distance glow"), 256, VISUAL | SLIDER_MIN | SLIDER_CLAMP, 0, 2048, 128);
+
 			CVar(Stencil, VA_LIST("Stencil scale", "Team stencil scale"), 1, VISUAL | SLIDER_MIN, 0, 10);
 			CVar(Blur, VA_LIST("Blur scale", "Team blur scale"), 0, VISUAL | SLIDER_MIN, 0, 10);
 		SUBNAMESPACE_END(Team);
@@ -670,6 +742,10 @@ namespace Vars
 			CVar(Bombs, VA_LIST("Bombs", "Bomb glow"), false, VISUAL);
 			CVar(Halloween, VA_LIST("Halloween", "Halloween glow"), false, VISUAL);
 				
+			CVar(Dist2Alpha, VA_LIST("Distance to alpha", "World distance to alpha glow"), true, VISUAL);
+			CVar(MaxDist, VA_LIST("Max render distance", "World max render distance glow"), 2048, VISUAL | SLIDER_MIN, 512, 4096, 128);
+			CVar(MinDist, VA_LIST("Min render distance", "World min render distance glow"), 256, VISUAL | SLIDER_MIN | SLIDER_CLAMP, 0, 2048, 128);
+
 			CVar(Stencil, VA_LIST("Stencil scale", "World stencil scale"), 1, VISUAL | SLIDER_MIN, 0, 10);
 			CVar(Blur, VA_LIST("Blur scale", "World blur scale"), 0, VISUAL | SLIDER_MIN, 0, 10);
 		SUBNAMESPACE_END(World);
@@ -683,7 +759,7 @@ namespace Vars
 			CVarEnum(Draw, VA_LIST("Draw", "Backtrack glow draw"), 0b0001, VISUAL | DROPDOWN_MULTI, "All",
 				VA_LIST("Last", "First", "##Divider", "Always", "Ignore team"),
 				Last = 1 << 0, First = 1 << 1, Always = 1 << 2, IgnoreTeam = 1 << 3);
-		SUBNAMESPACE_END(Backtrack)
+		SUBNAMESPACE_END(Backtrack);
 
 		SUBNAMESPACE_BEGIN(FakeAngle, Fake Angle Glow)
 			CVar(Enabled, VA_LIST("Enabled", "Fake angle glow"), false, VISUAL);
@@ -710,7 +786,7 @@ namespace Vars
 			CVar(Up, "Thirdperson up", 0.f, VISUAL | SLIDER_PRECISION, -100.f, 100.f, 5.f);
 
 			CVar(Scale, "Thirdperson scales", true, NOSAVE | DEBUGVAR);
-			CVar(Collide, "Thirdperson collides", true, NOSAVE | DEBUGVAR);
+			CVar(Collision, "Thirdperson collision", true, NOSAVE | DEBUGVAR);
 		SUBNAMESPACE_END(ThirdPerson);
 
 		SUBNAMESPACE_BEGIN(Removals)
@@ -792,29 +868,6 @@ namespace Vars
 			CVar(NoPropFade, "No prop fade", false, VISUAL);
 		SUBNAMESPACE_END(World);
 
-		SUBNAMESPACE_BEGIN(Other, Other Visuals)
-			CVar(LocalDominationOverride, "Local domination override", std::string(""), VISUAL);
-			CVar(LocalRevengeOverride, "Local revenge override", std::string(""), VISUAL);
-			CVar(DominationOverride, "Domination override", std::string(""), VISUAL);
-			CVar(RevengeOverride, "Revenge override", std::string(""), VISUAL);
-		SUBNAMESPACE_END(Other);
-
-		SUBNAMESPACE_BEGIN(Beams) // as of now, these will stay out of the menu
-			CVar(Model, "Model", std::string("sprites/physbeam.vmt"), VISUAL);
-			CVar(Life, "Life", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
-			CVar(Width, "Width", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
-			CVar(EndWidth, "End width", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
-			CVar(FadeLength, "Fade length", 10.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 30.f);
-			CVar(Amplitude, "Amplitude", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
-			CVar(Brightness, "Brightness", 255.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 255.f);
-			CVar(Speed, "Speed", 0.2f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 5.f);
-			CVar(Segments, "Segments", 2, VISUAL | SLIDER_MIN, 1, 10);
-			CVar(Color, "Color", Color_t(255, 255, 255, 255), VISUAL);
-			CVarEnum(Flags, "Flags", 0b10000000100000000, VISUAL | DROPDOWN_MULTI, nullptr,
-				VA_LIST("Start entity", "End entity", "Fade in", "Fade out", "Sine noise", "Solid", "Shade in", "Shade out", "Only noise once", "No tile", "Use hitboxes", "Start visible", "End visible", "Is active", "Forever", "Halobeam", "Reverse"),
-				StartEntity = 1 << 0, EndEntity = 1 << 1, FadeIn = 1 << 2, FadeOut = 1 << 3, SineNoise = 1 << 4, Solid = 1 << 5, ShadeIn = 1 << 6, ShadeOut = 1 << 7, OnlyNoiseOnce = 1 << 8, NoTile = 1 << 9, UseHitboxes = 1 << 10, StartVisible = 1 << 11, EndVisible = 1 << 12, IsActive = 1 << 13, Forever = 1 << 14, Halobeam = 1 << 15, Reverse = 1 << 16);
-		SUBNAMESPACE_END(Beams);
-
 		SUBNAMESPACE_BEGIN(Line)
 			CVar(Enabled, "Line tracers", false, VISUAL);
 			CVar(DrawDuration, VA_LIST("Draw duration", "Line draw duration"), 5.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
@@ -853,6 +906,30 @@ namespace Vars
 			CVar(SeparatorSpacing, "Separator spacing", 4, NOSAVE | DEBUGVAR, 1, 16);
 			CVar(SeparatorLength, "Separator length", 12.f, NOSAVE | DEBUGVAR, 2.f, 16.f);
 		SUBNAMESPACE_END(Simulation);
+		
+		SUBNAMESPACE_BEGIN(Other, Other Visuals)
+			CVar(LocalDominationOverride, "Local domination override", std::string(""), VISUAL);
+			CVar(LocalRevengeOverride, "Local revenge override", std::string(""), VISUAL);
+			CVar(DominationOverride, "Domination override", std::string(""), VISUAL);
+			CVar(RevengeOverride, "Revenge override", std::string(""), VISUAL);
+			CVar(KillstreakWeapons, "Killstreak weapons", false, VISUAL);
+		SUBNAMESPACE_END(Other);
+		
+		SUBNAMESPACE_BEGIN(Beams) // as of now, these will stay out of the menu
+			CVar(Model, "Model", std::string("sprites/physbeam.vmt"), VISUAL);
+			CVar(Life, "Life", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
+			CVar(Width, "Width", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
+			CVar(EndWidth, "End width", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
+			CVar(FadeLength, "Fade length", 10.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 30.f);
+			CVar(Amplitude, "Amplitude", 2.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 10.f);
+			CVar(Brightness, "Brightness", 255.f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 255.f);
+			CVar(Speed, "Speed", 0.2f, VISUAL | SLIDER_MIN | SLIDER_PRECISION, 0.f, 5.f);
+			CVar(Segments, "Segments", 2, VISUAL | SLIDER_MIN, 1, 10);
+			CVar(Color, "Color", Color_t(255, 255, 255, 255), VISUAL);
+			CVarEnum(Flags, "Flags", 0b10000000100000000, VISUAL | DROPDOWN_MULTI, nullptr,
+				VA_LIST("Start entity", "End entity", "Fade in", "Fade out", "Sine noise", "Solid", "Shade in", "Shade out", "Only noise once", "No tile", "Use hitboxes", "Start visible", "End visible", "Is active", "Forever", "Halobeam", "Reverse"),
+				StartEntity = 1 << 0, EndEntity = 1 << 1, FadeIn = 1 << 2, FadeOut = 1 << 3, SineNoise = 1 << 4, Solid = 1 << 5, ShadeIn = 1 << 6, ShadeOut = 1 << 7, OnlyNoiseOnce = 1 << 8, NoTile = 1 << 9, UseHitboxes = 1 << 10, StartVisible = 1 << 11, EndVisible = 1 << 12, IsActive = 1 << 13, Forever = 1 << 14, Halobeam = 1 << 15, Reverse = 1 << 16);
+		SUBNAMESPACE_END(Beams);
 
 		SUBNAMESPACE_BEGIN(Trajectory)
 			CVar(Override, "Simulation override", false, NOSAVE | DEBUGVAR);
@@ -947,6 +1024,61 @@ namespace Vars
 			CVar(BreakJump, "Break jump", false);
 			CVar(ShieldTurnRate, "Shield turn rate", false);
 
+			SUBNAMESPACE_BEGIN(NavEngine)
+				CVar(Enabled, VA_LIST("Enabled", "Nav engine enabled"), false);
+				CVar(PathInSetup, "Path in setup time", false);
+				CVarEnum(Draw, "Draw", 0b011, VISUAL | DROPDOWN_MULTI, nullptr,
+					VA_LIST("Path", "Areas", "Blacklisted zones"),
+					Path = 1 << 0, Area = 1 << 1, Blacklist = 1 << 2);
+				CVarEnum(LookAtPath, "Look at path", 0, NONE, nullptr,
+					VA_LIST("Off", "Plain", "Silent"),
+					Off, Plain, Silent);
+
+				CVar(SafePathing, "Safe pathing", false, NOSAVE | DEBUGVAR);
+				CVar(StickyIgnoreTime, "Sticky ignore time", 15, NOSAVE | DEBUGVAR | SLIDER_MIN, 15, 100, 5, "%is");
+				CVar(StuckDetectTime, "Stuck detect time", 2, NOSAVE | DEBUGVAR | SLIDER_MIN, 2, 26, 2, "%is");
+				CVar(StuckBlacklistTime, "Stuck blacklist time", 120, NOSAVE | DEBUGVAR | SLIDER_MIN, 20, 600, 20, "%is");
+				CVar(StuckExpireTime, "Stuck expire time", 5, NOSAVE | DEBUGVAR | SLIDER_MIN, 5, 100, 5, "%is");
+				CVar(StuckTime, "Stuck time", 0.2f, NOSAVE | DEBUGVAR | SLIDER_MIN, 0.25f, 0.9f, 0.05f, "%gs");
+
+				CVar(VischeckEnabled, "Vischeck enabled", false, NOSAVE | DEBUGVAR);
+				CVar(VischeckTime, "Vischeck time", 2.f, NOSAVE | DEBUGVAR | SLIDER_MIN, 0.005f, 3.f, 0.005f, "%gs");
+				CVar(VischeckCacheTime, "Vischeck cache time", 240, NOSAVE | DEBUGVAR | SLIDER_MIN, 10, 500, 10, "%is");
+			SUBNAMESPACE_END(NavEngine);
+
+			SUBNAMESPACE_BEGIN(NavBot)
+				CVar(Enabled, VA_LIST("Enabled", "Navbot enabled"), false);
+				CVarEnum(Blacklist, "Blacklist", 0b0101111, DROPDOWN_MULTI, "None",
+					VA_LIST("Normal threats", "Dormant threats", "##Divider", "Players", "Stickies", "Projectiles", "Sentries"),
+					NormalThreats = 1 << 0, DormantThreats = 1 << 1, Players = 1 << 2, Stickies = 1 << 3, Projectiles = 1 << 4, Sentries = 1 << 5);
+
+				CVar(BlacklistDelay, "Blacklist normal scan delay", 0.5f, SLIDER_MIN, 0.1f, 1.f, 0.1f, "%gs");
+				CVar(BlacklistDormantDelay, "Blacklist dormant scan delay", 1.f, SLIDER_MIN, 0.5f, 5.f, 0.5f, "%gs");
+				CVar(BlacklistSlightDangerLimit, "Blacklist slight danger limit", 2, SLIDER_MIN, 1, 10);
+
+				CVarEnum(WeaponSlot, "Force weapon", 0, NONE, nullptr,
+					VA_LIST("Off", "Best", "Primary", "Secondary", "Melee", "PDA"),
+					Off, Best, Primary, Secondary, Melee, PDA);
+
+				CVarEnum(RechargeDT, "Recharge DT", 0, NONE, nullptr,
+					VA_LIST("Off", "On", "If not fakelagging"),
+					Off, Always, WaitForFL);
+				CVar(RechargeDTDelay, "Recharge DT delay", 5, SLIDER_MIN, 0, 10, 1, "%is");
+
+				CVarEnum(AutoScope, "Auto scope", 0, NONE, nullptr,
+					VA_LIST("Off", "Simple", "MoveSim"),
+					Off, Simple, MoveSim);
+				CVar(AutoScopeCancelTime, "Auto scope cancel time", 3, SLIDER_MIN, 1, 5, 1, "%is");
+
+				CVarEnum(Preferences, "Preferences", 0b0, DROPDOWN_MULTI, "None",
+					VA_LIST("Get health", "Get ammo", "Reload weapons", "Stalk enemies", "Defend objectives", "Capture objectives", "Help capture objectives", "Escape danger", "Safe capping", "Target sentries", "Auto engie", "##Divider", "Target sentries low range", "Help capture objective friend only", "Dont escape danger with intel", "Group with others"),
+					SearchHealth = 1 << 0, SearchAmmo = 1 << 1, ReloadWeapons = 1 << 2, StalkEnemies = 1 << 3, DefendObjectives = 1 << 4, CaptureObjectives = 1 << 5, HelpCaptureObjectives = 1 << 6, EscapeDanger = 1 << 7, SafeCapping = 1 << 8, TargetSentries = 1 << 9, AutoEngie = 1 << 10, TargetSentriesLowRange = 1 << 11, HelpFriendlyCaptureObjectives = 1 << 12, DontEscapeDangerIntel = 1 << 13, GroupWithOthers = 1 << 14);
+				CVar(NoRandomizeCPSpot, "No randomize CP spot", false);
+				CVar(StickyDangerRange, "Sticky danger range", 600, NOSAVE | DEBUGVAR, 50, 1500, 50);
+				CVar(ProjectileDangerRange, "Projectile danger range", 600, NOSAVE | DEBUGVAR, 50, 1500, 50);
+				CVar(AutoScopeUseCachedResults, "Auto scope use cached results", true, NOSAVE | DEBUGVAR);
+			SUBNAMESPACE_END(NavBot);
+
 			CVar(TimingOffset, "Timing offset", 0, NOSAVE | DEBUGVAR, 0, 3);
 			CVar(ChokeCount, "Choke count", 1, NOSAVE | DEBUGVAR, 0, 3);
 			CVar(ApplyAbove, "Apply timing offset above", 0, NOSAVE | DEBUGVAR, 0, 8);
@@ -957,14 +1089,17 @@ namespace Vars
 			CVar(PureBypass, "Pure bypass", false);
 			CVar(EquipRegionUnlock, "Equip region unlock", false);
 			CVar(BackpackExpander, "Backpack expander", true);
+			CVar(BreakShootSound, "Break shoot sound", false);
 			CVar(PingReducer, "Ping reducer", false);
-			CVar(PingTarget, "cl_cmdrate", 1, SLIDER_CLAMP, 1, 66);
+			CVar(PingTarget, "Ping", 1, SLIDER_CLAMP, 1, 100, 1);
 		SUBNAMESPACE_END(Exploits);
 
 		SUBNAMESPACE_BEGIN(Automation)
 			CVarEnum(AntiBackstab, "Anti-backstab", 0, NONE, nullptr,
 				VA_LIST("Off", "Yaw", "Pitch", "Fake"),
 				Off, Yaw, Pitch, Fake);
+			CVar(NoiseSpam, "Noise spam", false);
+			CVar(AutoReport, "Auto report players", false);
 			CVar(AntiAFK, "Anti-AFK", false);
 			CVar(AntiAutobalance, "Anti-autobalance", false);
 			CVar(TauntControl, "Taunt control", false);
@@ -972,6 +1107,45 @@ namespace Vars
 			CVar(AcceptItemDrops, "Auto accept item drops", false);
 			CVar(AutoF2Ignored, "Auto F2 ignored", false);
 			CVar(AutoF1Priority, "Auto F1 priority", false);
+			CVar(RandomVotekick, "Random votekick", false);
+			CVar(AutoVoteMap, "Auto vote map", true);
+			CVar(AutoVoteMapOption, "", 2, SLIDER_CLAMP, 0, 2, 1, "%i");
+			CVar(ForceClass, "Autojoin class", 0);
+			CVar(RandomClassSwitch, "Random class switch", false);
+			CVar(RandomClassInterval, "Random class switch interval", 5, SLIDER_MIN, 1, 15, 1, "%i min");
+			CVarEnum(ExcludeProjectileClasses, "Exclude projectile classes", 0b0000, DROPDOWN_MULTI, "None",
+				VA_LIST("Soldier", "Demoman", "Pyro", "Medic"),
+				Soldier = 1 << 0, Demoman = 1 << 1, Pyro = 1 << 2, Medic = 1 << 3);
+			CVarEnum(VoiceCommandSpam, "Voice command spam", 0, NONE, nullptr,
+				VA_LIST("Off", "Random", "Medic", "Thanks", "Nice Shot", "Cheers", "Jeers", "Go Go Go", "Move Up", "Go Left", "Go Right", "Yes", "No", "Incoming", "Spy", "Sentry Ahead", "Need Teleporter", "Pootis", "Need Sentry", "Activate Charge", "Help", "Battle Cry"),
+				Off, Random, Medic, Thanks, NiceShot, Cheers, Jeers, GoGoGo, MoveUp, GoLeft, GoRight, Yes, No, Incoming, Spy, Sentry, NeedTeleporter, Pootis, NeedSentry, ActivateCharge, Help, BattleCry);
+			CVar(VoiceF2PMode, "F2P voicespam bucket", false);
+			
+			SUBNAMESPACE_BEGIN(ChatSpam)
+				CVar(Enable, "Chat spam", false);
+				CVar(Interval, "Interval", 3.0f, SLIDER_CLAMP | SLIDER_PRECISION, 0.5f, 10.0f, 0.5f, "%0.1fs");
+				CVar(TeamChat, "Team chat", false);
+				CVar(Randomize, "Randomize", false);
+				CVar(TextReplace, "Text replacement", true);
+				CVar(KillSay, "Kill say", false);
+				CVar(AutoReply, "Auto reply", false);
+				CVar(VotekickResponse, "Votekick response", false);
+			SUBNAMESPACE_END(ChatSpam);
+
+			SUBNAMESPACE_BEGIN(AutoItem)
+				CVarEnum(Enable, "Enable", 0b0, DROPDOWN_MULTI, nullptr,
+					VA_LIST("Waapons", "Hats", "Noisemaker"),
+					Weapons = 1 << 0, Hats = 1 << 1, Noisemaker = 1 << 2);
+				CVar(Interval, "Interval", 30, SLIDER_CLAMP, 2, 60, 1, "%is");
+
+				CVar(Primary, "Weapon primary", std::string("-1"));
+				CVar(Secondary, "Weapon secondary", std::string("-1"));
+				CVar(Melee, "Weapon melee", std::string("-1"));
+
+				CVar(FirstHat, "Hat 1", 940);
+				CVar(SecondHat, "Hat 2", 941);
+				CVar(ThirdHat, "Hat 3", 302);
+			SUBNAMESPACE_END(AutoItem);
 		SUBNAMESPACE_END(Automation);
 
 		SUBNAMESPACE_BEGIN(Sound)
@@ -979,6 +1153,10 @@ namespace Vars
 				VA_LIST("Footsteps", "Noisemaker", "Frying pan", "Water"),
 				Footsteps = 1 << 0, Noisemaker = 1 << 1, FryingPan = 1 << 2, Water = 1 << 3);
 			CVar(HitsoundAlways, "Hitsound always", false);
+			CVarEnum(HitsoundType, "Hitsound type", 0, NONE, nullptr,
+				VA_LIST("Default", "Bonk", "COD", "Quake", "Moan"),
+				Default, Bonk, COD, Quake, Moan);
+			CVar(HitsoundVolume, "Hitsound volume", 1.0f, SLIDER_CLAMP, 0.0f, 1.0f, 0.1f);
 			CVar(RemoveDSP, "Remove DSP", false);
 			CVar(GiantWeaponSounds, "Giant weapon sounds", false);
 		SUBNAMESPACE_END(Sound);
@@ -988,6 +1166,7 @@ namespace Vars
 			CVar(PredictionErrorJitterFix, "Prediction error jitter fix", false);
 			CVar(SetupBonesOptimization, "Bones optimization", false);
 			CVar(F2PChatBypass, "F2P chat bypass", false);
+			CVar(VACBypass, "Valve allows cheats", false);
 			CVar(AntiCheatCompatibility, "Anti-cheat compatibility", false);
 			CVar(AntiCheatCritHack, "Anti-cheat crit hack", false, NOSAVE | DEBUGVAR);
 		SUBNAMESPACE_END(Game);
@@ -1036,13 +1215,19 @@ namespace Vars
 			);
 			CVar(FreezeQueue, "Freeze queue", false);
 			CVar(AutoCasualQueue, "Auto casual queue", false);
+			CVar(QueueDelay, "Queue delay", 5, SLIDER_MIN, 0, 10, 1, "%im");
+			CVar(RQif, "Requeue if...", false); // Dropdown?
+			CVar(RQplt, "Players LT", 12, SLIDER_MIN, 0, 100, 1, "%i");
+			CVar(RQkick, "Kicked", false);
+			CVar(RQLTM, "dont RQLTM", false);
+			CVar(RQIgnoreFriends, "Ignore Friends", false);
 		SUBNAMESPACE_END(Queueing);
 
 		SUBNAMESPACE_BEGIN(MannVsMachine, Mann vs. Machine)
 			CVar(InstantRespawn, "Instant respawn", false);
 			CVar(InstantRevive, "Instant revive", false);
 			CVar(AllowInspect, "Allow inspect", false);
-		SUBNAMESPACE_END(Sound);
+		SUBNAMESPACE_END(MannVsMachine);
 
 		SUBNAMESPACE_BEGIN(SteamRPC, Steam RPC)
 			CVar(Enabled, "Enabled", false);
@@ -1050,11 +1235,75 @@ namespace Vars
 			CVarEnum(MatchGroup, "Match group", 0, NONE, nullptr,
 				VA_LIST("Special Event", "MvM Mann Up", "Competitive", "Casual", "MvM Boot Camp"),
 				SpecialEvent, MvMMannUp, Competitive, Casual, MvMBootCamp);
-			CVar(MapText, "Map text", std::string("Amalgam"));
+			CVar(MapText, "Map text", std::string("neptune"));
 			CVar(GroupSize, "Group size", 1337, SLIDER_MIN, 0, 6);
 		SUBNAMESPACE_END(Steam);
 	NAMESPACE_END(Misc);
 
+	NAMESPACE_BEGIN(NavEng)
+		SUBNAMESPACE_BEGIN(NavEngine)
+			CVar(Enabled, VA_LIST("Enabled", "Nav engine enabled"), false);
+			CVar(PathInSetup, "Path in setup time", false);
+			CVarEnum(Draw, "Draw", 0b0111, VISUAL | DROPDOWN_MULTI, nullptr,
+				VA_LIST("Path", "Cool", "Areas", "Blacklisted zones"),
+				Path = 1 << 0, Cool = 1 << 1, Area = 1 << 2, Blacklist = 1 << 3);
+			CVar(CoolRange, "Cool Range", 500, VISUAL | SLIDER_MIN, 100, 1000, 50, "%i units");
+			CVarEnum(LookAtPath, "Look at path", 0, NONE, nullptr,
+				VA_LIST("Off", "Plain", "Silent", "Legit"),
+				Off, Plain, Silent, Legit);
+			CVar(StickyIgnoreTime, "Sticky ignore time", 15, NOSAVE | DEBUGVAR | SLIDER_MIN, 15, 100, 5, "%is");
+			CVar(StuckDetectTime, "Stuck detect time", 2, NOSAVE | DEBUGVAR | SLIDER_MIN, 2, 26, 2, "%is");
+			CVar(StuckBlacklistTime, "Stuck blacklist time", 120, NOSAVE | DEBUGVAR | SLIDER_MIN, 20, 600, 20, "%is");
+			CVar(StuckExpireTime, "Stuck expire time", 5, NOSAVE | DEBUGVAR | SLIDER_MIN, 5, 100, 5, "%is");
+			CVar(StuckTime, "Stuck time", 0.2f, NOSAVE | DEBUGVAR | SLIDER_MIN, 0.25f, 0.9f, 0.05f, "%gs");
+			CVar(VischeckEnabled, "Vischeck enabled", false, NOSAVE | DEBUGVAR);
+			CVar(VischeckTime, "Vischeck time", 2.f, NOSAVE | DEBUGVAR | SLIDER_MIN, 0.005f, 3.f, 0.005f, "%gs");
+			CVar(VischeckCacheTime, "Vischeck cache time", 240, NOSAVE | DEBUGVAR | SLIDER_MIN, 10, 500, 10, "%is");
+		SUBNAMESPACE_END(NavEngine);
+
+		SUBNAMESPACE_BEGIN(NavBot)
+			CVar(Enabled, VA_LIST("Enabled", "Navbot enabled"), false);
+			CVarEnum(Blacklist, "Blacklist", 0b0101111, DROPDOWN_MULTI, "None",
+				VA_LIST("Normal threats", "Dormant threats", "##Divider", "Players", "Stickies", "Projectiles", "Sentries"),
+				NormalThreats = 1 << 0, DormantThreats = 1 << 1, Players = 1 << 2, Stickies = 1 << 3, Projectiles = 1 << 4, Sentries = 1 << 5);
+			CVar(BlacklistDelay, "Blacklist normal scan delay", 0.5f, SLIDER_MIN, 0.1f, 1.f, 0.1f, "%gs");
+			CVar(BlacklistDormantDelay, "Blacklist dormant scan delay", 1.f, SLIDER_MIN, 0.5f, 5.f, 0.5f, "%gs");
+			CVar(BlacklistSlightDangerLimit, "Blacklist slight danger limit", 2, SLIDER_MIN, 1, 10);
+			CVarEnum(WeaponSlot, "Force weapon", 0, NONE, nullptr,
+				VA_LIST("Off", "Best", "Primary", "Secondary", "Melee", "PDA"),
+				Off, Best, Primary, Secondary, Melee, PDA);
+			CVarEnum(RechargeDT, "Recharge DT", 0, NONE, nullptr,
+				VA_LIST("Off", "On", "If not fakelagging"),
+				Off, Always, WaitForFL);
+			CVar(RechargeDTDelay, "Recharge DT delay", 5, SLIDER_MIN, 0, 10, 1, "%is");
+			CVarEnum(AutoScope, "Auto scope", 0, NONE, nullptr,
+				VA_LIST("Off", "Simple", "MoveSim"),
+				Off, Simple, MoveSim);
+			CVar(AutoScopeCancelTime, "Auto scope cancel time", 3, SLIDER_MIN, 1, 5, 1, "%is");
+			CVarEnum(Preferences, "Preferences", 0b0, DROPDOWN_MULTI, "None",
+				VA_LIST("Get health", "Get ammo", "Reload weapons", "Stalk enemies", "Defend objectives", "Capture objectives", "Help capture objectives", "Escape danger", "Safe capping", "Target sentries", "Auto engie", "##Divider", "Target sentries low range", "Help capture objective friend only", "Dont escape danger with intel", "Group with others"),
+				SearchHealth = 1 << 0, SearchAmmo = 1 << 1, ReloadWeapons = 1 << 2, StalkEnemies = 1 << 3, DefendObjectives = 1 << 4, CaptureObjectives = 1 << 5, HelpCaptureObjectives = 1 << 6, EscapeDanger = 1 << 7, SafeCapping = 1 << 8, TargetSentries = 1 << 9, AutoEngie = 1 << 10, TargetSentriesLowRange = 1 << 11, HelpFriendlyCaptureObjectives = 1 << 12, DontEscapeDangerIntel = 1 << 13, GroupWithOthers = 1 << 14);
+			CVar(NoRandomizeCPSpot, "No randomize CP spot", false);
+			CVar(StickyDangerRange, "Sticky danger range", 600, NOSAVE | DEBUGVAR, 50, 1500, 50);
+			CVar(ProjectileDangerRange, "Projectile danger range", 600, NOSAVE | DEBUGVAR, 50, 1500, 50);
+			CVar(AutoScopeUseCachedResults, "Auto scope use cached results", true, NOSAVE | DEBUGVAR);
+		SUBNAMESPACE_END(NavBot);
+
+		SUBNAMESPACE_BEGIN(FollowBot)
+			CVar(Enabled, VA_LIST("Enabled", "FollowBot enabled"), false);
+			CVar(OnlyFriends, "Only follow friends", false);
+			CVar(OnlyParty, "Only follow party members", false);
+			CVar(FollowEnemies, "Follow enemies", false);
+			CVar(StickToTarget, "Stick to target", true); // Keep following the same target until they die
+			CVar(SmartSelection, "Smart target selection", false); // Use smart algorithm to select the best target
+			CVar(FollowID, "Follow ID", std::string(""));
+			CVar(Distance, "Follow distance", 150, SLIDER_MIN, 50, 300, 25);
+			CVarEnum(PositionMode, "Position mode", 0, NONE, nullptr,
+				VA_LIST("Behind", "Side", "Adaptive"),
+				Behind, Side, Adaptive);
+		SUBNAMESPACE_END(FollowBot);
+	NAMESPACE_END(NavEng);
+	
 	NAMESPACE_BEGIN(Logging)
 		CVarEnum(Logs, "Logs", 0b0000011, DROPDOWN_MULTI, "Off",
 			VA_LIST("Vote start", "Vote cast", "Class changes", "Damage", "Cheat detection", "Tags", "Aliases", "Resolver"),

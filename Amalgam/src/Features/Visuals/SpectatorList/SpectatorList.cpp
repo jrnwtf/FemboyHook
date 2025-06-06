@@ -3,6 +3,8 @@
 #include "../../Players/PlayerUtils.h"
 #include "../../Spectate/Spectate.h"
 
+static float s_flCurrentHeight = 0.0f;
+
 bool CSpectatorList::GetSpectators(CTFPlayer* pTarget)
 {
 	m_vSpectators.clear();
@@ -16,6 +18,13 @@ bool CSpectatorList::GetSpectators(CTFPlayer* pTarget)
 		auto pObserverTarget = pPlayer->m_hObserverTarget().Get();
 		int iObserverMode = pPlayer->m_iObserverMode();
 		if (bLocal && F::Spectate.m_iTarget != -1)
+		{
+			pObserverTarget = F::Spectate.m_pOriginalTarget;
+			iObserverMode = F::Spectate.m_iOriginalMode;
+		}
+
+		if (pPlayer->IsAlive() || pObserverTarget != pTarget
+			|| bLocal && !I::EngineClient->IsPlayingDemo() && F::Spectate.m_iTarget == -1)
 		{
 			pObserverTarget = F::Spectate.m_pOriginalTarget;
 			iObserverMode = F::Spectate.m_iOriginalMode;
@@ -65,6 +74,7 @@ void CSpectatorList::Draw(CTFPlayer* pLocal)
 	if (!(Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::Spectators))
 	{
 		m_mRespawnCache.clear();
+		s_flCurrentHeight = 0.0f;  // Reset height when disabled
 		return;
 	}
 
@@ -83,38 +93,66 @@ void CSpectatorList::Draw(CTFPlayer* pLocal)
 		return;
 
 	int x = Vars::Menu::SpectatorsDisplay.Value.x;
-	int y = Vars::Menu::SpectatorsDisplay.Value.y + 8;
-	int iconOffset = 0;
+	int y = Vars::Menu::SpectatorsDisplay.Value.y;
 	const auto& fFont = H::Fonts.GetFont(FONT_INDICATORS);
 	const int nTall = fFont.m_nTall + H::Draw.Scale(3);
 
-	EAlign align = ALIGN_TOP;
-	if (x <= 100 + H::Draw.Scale(50, Scale_Round))
+	int maxTextWidth = 0;
+	for (auto& Spectator : m_vSpectators)
 	{
-		x -= H::Draw.Scale(42, Scale_Round);
-		align = ALIGN_TOPLEFT;
-	}
-	else if (x >= H::Draw.m_nScreenW - 100 + H::Draw.Scale(50, Scale_Round))
-	{
-		x += H::Draw.Scale(42, Scale_Round);
-		align = ALIGN_TOPRIGHT;
+		int w = 0, h = 0;
+		std::string text = std::format("{} - {} ({}s)", Spectator.m_sName, Spectator.m_sMode, static_cast<int>(Spectator.m_flRespawnIn));
+		I::MatSystemSurface->GetTextSize(fFont.m_dwFont, SDK::ConvertUtf8ToWide(text).c_str(), w, h);
+		maxTextWidth = std::max(maxTextWidth, w);
 	}
 
-	std::string sName = pTarget != pLocal ? F::PlayerUtils.GetPlayerName(pTarget->entindex(), pi.name) : "You";
-	H::Draw.String(fFont, x, y, Vars::Menu::Theme::Accent.Value, align, std::format("Spectating {}:", sName).c_str());
-	for (auto& tSpectator : m_vSpectators)
-	{
-		y += nTall;
+	int totalHeight = H::Draw.Scale(48);
+	totalHeight += static_cast<int>(m_vSpectators.size()) * nTall;
+	totalHeight += H::Draw.Scale(4); 
 
-		Color_t tColor = Vars::Menu::Theme::Active.Value;
-		if (H::Entities.IsFriend(tSpectator.m_iIndex))
+	s_flCurrentHeight = std::lerp(s_flCurrentHeight, static_cast<float>(totalHeight), I::GlobalVars->frametime * 10.0f);
+	totalHeight = static_cast<int>(std::round(s_flCurrentHeight));
+
+	const int boxWidth = std::max(H::Draw.Scale(220), maxTextWidth + H::Draw.Scale(40)); 
+	const int cornerRadius = H::Draw.Scale(2); 
+	
+	Color_t tBackgroundColor = Vars::Menu::Theme::Background.Value;
+	tBackgroundColor = tBackgroundColor.Lerp({ 127, 127, 127, tBackgroundColor.a }, 1.f / 9);
+	tBackgroundColor.a = 255; // Make fully opaque
+	
+	Color_t tAccentColor = Vars::Menu::Theme::Accent.Value;
+	Color_t tActiveColor = Vars::Menu::Theme::Active.Value;
+
+	H::Draw.FillRoundRect(x, y, boxWidth, totalHeight, cornerRadius, tBackgroundColor);
+
+	const float headerHeight = H::Draw.Scale(24);
+	Color_t tHeaderBgColor = tBackgroundColor;
+	tHeaderBgColor = { 
+		static_cast<byte>(tBackgroundColor.r * 0.9f), 
+		static_cast<byte>(tBackgroundColor.g * 0.9f), 
+		static_cast<byte>(tBackgroundColor.b * 0.9f), 
+		tBackgroundColor.a 
+	};
+	
+	H::Draw.FillRoundRect(x, y, boxWidth, headerHeight, cornerRadius, tHeaderBgColor);
+	H::Draw.String(fFont, x + H::Draw.Scale(16), y + H::Draw.Scale(5), tActiveColor, ALIGN_TOPLEFT, "Spec");
+	int specWidth = 0, specHeight = 0;
+	I::MatSystemSurface->GetTextSize(fFont.m_dwFont, L"Spec", specWidth, specHeight);
+	H::Draw.String(fFont, x + H::Draw.Scale(16) + specWidth, y + H::Draw.Scale(5), tAccentColor, ALIGN_TOPLEFT, "tators");
+
+	y += H::Draw.Scale(32);
+	for (auto& Spectator : m_vSpectators)
+	{
+		Color_t tColor = tActiveColor;
+		if (Spectator.m_bIsFriend)
 			tColor = F::PlayerUtils.m_vTags[F::PlayerUtils.TagToIndex(FRIEND_TAG)].m_tColor;
-		else if (H::Entities.InParty(tSpectator.m_iIndex))
+		else if (Spectator.m_bInParty)
 			tColor = F::PlayerUtils.m_vTags[F::PlayerUtils.TagToIndex(PARTY_TAG)].m_tColor;
-		else if (tSpectator.m_bRespawnTimeIncreased)
+		else if (Spectator.m_bRespawnTimeIncreased)
 			tColor = F::PlayerUtils.m_vTags[F::PlayerUtils.TagToIndex(CHEATER_TAG)].m_tColor;
-		else if (FNV1A::Hash32(tSpectator.m_sMode.c_str()) == FNV1A::Hash32Const("1st"))
+		else if (FNV1A::Hash32(Spectator.m_sMode.c_str()) == FNV1A::Hash32Const("1st"))
 			tColor = tColor.Lerp({ 255, 150, 0, 255 }, 0.5f);
+		
 		H::Draw.String(fFont, x + iconOffset, y, tColor, align, std::format("{} ({} - respawn {}s)", tSpectator.m_sName, tSpectator.m_sMode, tSpectator.m_flRespawnIn).c_str());
 	}
 }

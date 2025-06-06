@@ -5,6 +5,7 @@ MAKE_SIGNATURE(CTFRagdoll_CreateTFRagdoll, "client.dll", "48 89 4C 24 ? 55 53 56
 MAKE_HOOK(CTFRagdoll_CreateTFRagdoll, S::CTFRagdoll_CreateTFRagdoll(), void,
 	void* rcx)
 {
+#ifndef TEXTMODE
 #ifdef DEBUG_HOOKS
 	if (!Vars::Hooks::CTFRagdoll_CreateTFRagdoll[DEFAULT_BIND])
 		return CALL_ORIGINAL(rcx);
@@ -33,4 +34,5 @@ MAKE_HOOK(CTFRagdoll_CreateTFRagdoll, S::CTFRagdoll_CreateTFRagdoll(), void,
 	*/
 
 	CALL_ORIGINAL(rcx);
+#endif
 }

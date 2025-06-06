@@ -116,8 +116,16 @@ namespace SDK
 
 	Vec3 ComputeMove(const CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vFrom, Vec3& vTo);
 	void WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vFrom, Vec3& vTo, float flScale = 1.f);
-	void WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vTo, float flScale = 1.f);
+	void WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3 vTo, float flScale = 1.f);
+	void WalkToFixAntiAim(CUserCmd* pCmd, const Vec3& vTargetAngle);
 
 	void GetProjectileFireSetup(CTFPlayer* pPlayer, const Vec3& vAngIn, Vec3 vOffset, Vec3& vPosOut, Vec3& vAngOut, bool bPipes = false, bool bInterp = false, bool bAllowFlip = true);
 	void GetProjectileFireSetupAirblast(CTFPlayer* pPlayer, const Vec3& vAngIn, Vec3 vPosIn, Vec3& vAngOut, bool bInterp = false);
+
+	float CalculateSplashRadiusDamageFalloff(CTFWeaponBase* pWeapon, CTFPlayer* pAttacker, CTFWeaponBaseGrenadeProj* pProjectile, float flRadius);
+	float CalculateSplashRadiusDamage(CTFWeaponBase* pWeapon, CTFPlayer* pAttacker, CTFWeaponBaseGrenadeProj* pProjectile, float flRadius, float flDist, float& flDamageNoBuffs, bool bSelf = false );
+	bool WeaponDoesNotUseAmmo( CTFWeaponBase* pWeapon, bool bIncludeInfiniteAmmo = true );
+	bool WeaponDoesNotUseAmmo( int WeaponID, int DefIdx, bool bIncludeInfiniteAmmo = true );
+	int GetWeaponMaxReserveAmmo( int WeaponID, int DefIdx );
+	std::string GetLevelName( );
 }

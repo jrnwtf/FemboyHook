@@ -15,12 +15,16 @@ class CAimbotMelee
 						 std::unordered_map<int, std::vector<Vec3>>& mPaths);
 	bool CanBackstab(CBaseEntity* pTarget, CTFPlayer* pLocal, Vec3 vEyeAngles);
 	int CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* pWeapon, Vec3 vEyePos, std::deque<TickRecord>& vSimRecords);
-	
+
 	bool Aim(Vec3 vCurAngle, Vec3 vToAngle, Vec3& vOut, int iMethod = Vars::Aimbot::General::AimType.Value);
 	void Aim(CUserCmd* pCmd, Vec3& vAngle);
 
 	bool FindNearestBuildPoint(CBaseObject* pBuilding, CTFPlayer* pLocal, Vec3& vPoint);
 	bool RunSapper(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd);
+
+	bool AimFriendlyBuilding(CTFPlayer* pLocal, CBaseObject* pBuilding);
+	std::vector<Target_t> GetTargetBuilding(CTFPlayer* pLocal, CTFWeaponBase* pWeapon);
+	bool AutoEngie(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd);
 
 	int iDoubletapTicks = 0;
 	int iDoubletapMax = 0;

@@ -3,7 +3,9 @@
 #include "../Features/EnginePrediction/EnginePrediction.h"
 #include "../Features/Visuals/Notifications/Notifications.h"
 #include "../Features/ImGui/Menu/Menu.h"
+#include "../Features/Configs/Configs.h"
 #include <random>
+#include <fstream>
 
 #pragma warning (disable : 6385)
 
@@ -638,9 +640,9 @@ void SDK::FixMovement(CUserCmd* pCmd, const Vec3& vCurAngle, const Vec3& vTarget
 	bool bCurOOB = fabsf(Math::NormalizeAngle(vCurAngle.x)) > 90.f;
 	bool bTargetOOB = fabsf(Math::NormalizeAngle(vTargetAngle.x)) > 90.f;
 
-	Vec3 vMove = { pCmd->forwardmove, pCmd->sidemove * (bCurOOB ? -1 : 1), pCmd->upmove};
+	Vec3 vMove = { pCmd->forwardmove, pCmd->sidemove * (bCurOOB ? -1 : 1), pCmd->upmove };
 	float flSpeed = vMove.Length2D();
-	Vec3 vMoveAng; Math::VectorAngles(vMove, vMoveAng);
+	Vec3 vMoveAng = {}; Math::VectorAngles(vMove, vMoveAng);
 
 	float flCurYaw = vCurAngle.y + (bCurOOB ? 180.f : 0.f);
 	float flTargetYaw = vTargetAngle.y + (bTargetOOB ? 180.f : 0.f);
@@ -709,13 +711,37 @@ void SDK::WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vFrom, Vec3& vTo, floa
 	pCmd->upmove = vResult.z * flScale;
 }
 
-void SDK::WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3& vTo, float flScale)
+void SDK::WalkTo(CUserCmd* pCmd, CTFPlayer* pLocal, Vec3 vTo, float flScale)
 {
 	Vec3 vLocalPos = pLocal->m_vecOrigin();
 	WalkTo(pCmd, pLocal, vLocalPos, vTo, flScale);
 }
 
+void SDK::WalkToFixAntiAim(CUserCmd* pCmd, const Vec3& vTargetAngle)
+{
+	// This special function specifically preserves NavBot's movement direction
+	// while still applying the necessary angle corrections for AntiAim
+	
+	float flOriginalForward = pCmd->forwardmove;
+	float flOriginalSide = pCmd->sidemove;
+	
+	if (flOriginalForward == 0.0f && flOriginalSide == 0.0f)
+		return;
+	
+	float flOriginalYaw = DEG2RAD(pCmd->viewangles.y);
+	float flNewYaw = DEG2RAD(vTargetAngle.y);
 
+	pCmd->forwardmove = (flOriginalForward * cos(flNewYaw - flOriginalYaw)) + (flOriginalSide * sin(flNewYaw - flOriginalYaw));
+	pCmd->sidemove = (flOriginalSide * cos(flNewYaw - flOriginalYaw)) - (flOriginalForward * sin(flNewYaw - flOriginalYaw));
+	
+	bool bCurPitchFlipped = fabsf(Math::NormalizeAngle(pCmd->viewangles.x)) > 90.f;
+	bool bTargetPitchFlipped = fabsf(Math::NormalizeAngle(vTargetAngle.x)) > 90.f;
+	
+	if (bCurPitchFlipped != bTargetPitchFlipped)
+	{
+		pCmd->forwardmove *= -1.0f;
+	}
+}
 
 class CTraceFilterSetup : public ITraceFilter // trace filter solely for GetProjectileFireSetup
 {
@@ -796,4 +822,274 @@ void SDK::GetProjectileFireSetupAirblast(CTFPlayer* pPlayer, const Vec3& vAngIn,
 	Trace(vShootPos, vEndPos, MASK_SOLID, &filter, &trace);
 
 	Math::VectorAngles(trace.endpos - vPosIn, vAngOut);
+}
+
+//Pasted from somewhere in the valves tf2 server code
+float SDK::CalculateSplashRadiusDamageFalloff(CTFWeaponBase* pWeapon, CTFPlayer* pAttacker, CTFWeaponBaseGrenadeProj* pProjectile, float flRadius)
+{
+	float flFalloff{ 0.0f };
+	const int dmgType = pProjectile->GetDamageType();
+
+	if (dmgType & DMG_RADIUS_MAX)
+		flFalloff = 0.0f;
+	else if (dmgType & DMG_HALF_FALLOFF)
+		flFalloff = 0.5f;
+	else if (flRadius)
+		flFalloff = pProjectile->m_flDamage() / flRadius;
+	else
+		flFalloff = 1.0f;
+
+	if (pWeapon)
+	{
+		float flFalloffMod = 1.f;
+		AttribHookValue(flFalloffMod, "mult_dmg_falloff", pWeapon);
+		if (flFalloffMod != 1.f)
+			flFalloff += flFalloffMod;
+	}
+
+	if (pAttacker && pAttacker->InCond(TF_COND_RUNE_PRECISION))
+		flFalloff = 1.0f;
+	return flFalloff;
+}
+
+float SDK::CalculateSplashRadiusDamage(CTFWeaponBase* pWeapon, CTFPlayer* pAttacker, CTFWeaponBaseGrenadeProj* pProjectile, float flRadius, float flDist, float& flDamageNoBuffs, bool bSelf)
+{
+	float flFalloff{ CalculateSplashRadiusDamageFalloff(pWeapon, pAttacker, pProjectile, flRadius) };
+	float flDamage{ Math::RemapVal(flDist, 0.f, flRadius, pProjectile->m_flDamage(), pProjectile->m_flDamage() * flFalloff) };
+	flDamageNoBuffs = flDamage;
+
+	bool bCrit{ (pProjectile->GetDamageType() & DMG_CRITICAL) > 0 };
+	if (bCrit || pAttacker->IsMiniCritBoosted())
+	{
+		float flDamageBonus{ 0.f };
+		if (bCrit)
+		{
+			flDamageBonus = (TF_DAMAGE_CRIT_MULTIPLIER - 1.f) * flDamage;
+		}
+		else
+		{
+			flDamageBonus = (TF_DAMAGE_MINICRIT_MULTIPLIER - 1.f) * flDamage;
+		}
+
+		flDamage += flDamageBonus;
+	}
+
+	// Grenades & Pipebombs do less damage to ourselves.
+	if (bSelf && pWeapon)
+	{
+		switch (pWeapon->GetWeaponID())
+		{
+		case TF_WEAPON_PIPEBOMBLAUNCHER:
+		case TF_WEAPON_GRENADELAUNCHER:
+		case TF_WEAPON_CANNON:
+		case TF_WEAPON_STICKBOMB:
+			flDamage *= 0.75f;
+			flDamageNoBuffs *= 0.75f;
+			break;
+		}
+	}
+	return flDamage;
+}
+
+bool SDK::WeaponDoesNotUseAmmo(CTFWeaponBase* pWeapon, bool bIncludeInfiniteAmmo)
+{
+	if (!pWeapon)
+		return false;
+
+	if (pWeapon->GetSlot() == SLOT_MELEE)
+		return true;
+
+	switch (pWeapon->m_iItemDefinitionIndex())
+	{
+	case Soldier_s_TheBuffBanner:
+	case Soldier_s_FestiveBuffBanner:
+	case Soldier_s_TheBattalionsBackup:
+	case Soldier_s_TheConcheror:
+	case Demoman_s_TheTideTurner:
+	case Demoman_s_TheCharginTarge:
+	case Demoman_s_TheSplendidScreen:
+	case Demoman_s_FestiveTarge:
+	case Demoman_m_TheBootlegger:
+	case Demoman_m_AliBabasWeeBooties:
+	case Engi_s_TheWrangler:
+	case Engi_s_FestiveWrangler:
+	case Sniper_s_CozyCamper:
+	case Sniper_s_DarwinsDangerShield:
+	case Sniper_s_TheRazorback:
+	case Pyro_s_ThermalThruster: return true;
+	default:
+	{
+		switch (pWeapon->GetWeaponID())
+		{
+		case TF_WEAPON_PARTICLE_CANNON:
+		case TF_WEAPON_RAYGUN:
+		case TF_WEAPON_DRG_POMSON: return bIncludeInfiniteAmmo;
+		case TF_WEAPON_FLAREGUN_REVENGE:
+		case TF_WEAPON_MEDIGUN:
+		case TF_WEAPON_PDA:
+		case TF_WEAPON_PDA_ENGINEER_BUILD:
+		case TF_WEAPON_PDA_ENGINEER_DESTROY:
+		case TF_WEAPON_PDA_SPY:
+		case TF_WEAPON_PDA_SPY_BUILD:
+		case TF_WEAPON_BUILDER:
+		case TF_WEAPON_INVIS:
+		case TF_WEAPON_LUNCHBOX:
+		case TF_WEAPON_THROWABLE:
+		case TF_WEAPON_JAR:
+		case TF_WEAPON_JAR_GAS:
+		case TF_WEAPON_JAR_MILK:
+		case TF_WEAPON_GRAPPLINGHOOK: return true;
+		default: return false;
+		}
+		break;
+	}
+	}
+}
+
+bool SDK::WeaponDoesNotUseAmmo(int WeaponID, int DefIdx, bool bIncludeInfiniteAmmo)
+{
+	switch (DefIdx)
+	{
+	case Soldier_s_TheBuffBanner:
+	case Soldier_s_FestiveBuffBanner:
+	case Soldier_s_TheBattalionsBackup:
+	case Soldier_s_TheConcheror:
+	case Demoman_s_TheTideTurner:
+	case Demoman_s_TheCharginTarge:
+	case Demoman_s_TheSplendidScreen:
+	case Demoman_s_FestiveTarge:
+	case Demoman_m_TheBootlegger:
+	case Demoman_m_AliBabasWeeBooties:
+	case Engi_s_TheWrangler:
+	case Engi_s_FestiveWrangler:
+	case Sniper_s_CozyCamper:
+	case Sniper_s_DarwinsDangerShield:
+	case Sniper_s_TheRazorback:
+	case Pyro_s_ThermalThruster: return true;
+	default:
+	{
+		switch (WeaponID)
+		{
+		case TF_WEAPON_PARTICLE_CANNON:
+		case TF_WEAPON_RAYGUN:
+		case TF_WEAPON_DRG_POMSON: return bIncludeInfiniteAmmo;
+		case TF_WEAPON_FLAREGUN_REVENGE:
+		case TF_WEAPON_MEDIGUN:
+		case TF_WEAPON_PDA:
+		case TF_WEAPON_PDA_ENGINEER_BUILD:
+		case TF_WEAPON_PDA_ENGINEER_DESTROY:
+		case TF_WEAPON_PDA_SPY:
+		case TF_WEAPON_PDA_SPY_BUILD:
+		case TF_WEAPON_BUILDER:
+		case TF_WEAPON_INVIS:
+		case TF_WEAPON_LUNCHBOX:
+		case TF_WEAPON_THROWABLE:
+		case TF_WEAPON_JAR:
+		case TF_WEAPON_JAR_GAS:
+		case TF_WEAPON_JAR_MILK:
+		case TF_WEAPON_GRAPPLINGHOOK: return true;
+		default: return false;
+		}
+		break;
+	}
+	}
+}
+
+
+// Is there a way of doing this without hardcoded numbers???
+int SDK::GetWeaponMaxReserveAmmo(int WeaponID, int DefIdx)
+{
+	switch (DefIdx)
+	{
+	case Engi_m_TheWidowmaker:
+	case Engi_s_TheShortCircuit:
+		return 200;
+	case Scout_m_ForceANature:
+	case Scout_m_FestiveForceANature:
+	case Scout_m_BackcountryBlaster:
+		return 32;
+	case Demoman_s_TheQuickiebombLauncher:
+		return 24;
+	case Demoman_s_TheScottishResistance:
+		return 36;
+	case Demoman_s_StickyJumper:
+		return 72;
+	case Soldier_m_RocketJumper:
+		return 60;
+	default:
+	{
+		switch (WeaponID)
+		{
+		case TF_WEAPON_MINIGUN:
+		case TF_WEAPON_PISTOL:
+		case TF_WEAPON_FLAMETHROWER:
+			return 200;
+		case TF_WEAPON_SYRINGEGUN_MEDIC:
+			return 150;
+		case TF_WEAPON_SMG:
+			return 75;
+		case TF_WEAPON_FLAME_BALL:
+			return 40;
+		case TF_WEAPON_CROSSBOW:
+			return 38;
+		case TF_WEAPON_HANDGUN_SCOUT_SECONDARY:
+		case TF_WEAPON_PISTOL_SCOUT:
+		case TF_WEAPON_HANDGUN_SCOUT_PRIMARY:
+			return 36;
+		case TF_WEAPON_SCATTERGUN:
+		case TF_WEAPON_PEP_BRAWLER_BLASTER:
+		case TF_WEAPON_SODA_POPPER:
+		case TF_WEAPON_SHOTGUN_HWG:
+		case TF_WEAPON_SHOTGUN_PRIMARY:
+		case TF_WEAPON_SHOTGUN_PYRO:
+		case TF_WEAPON_SHOTGUN_SOLDIER:
+			return 32;
+		case TF_WEAPON_SNIPERRIFLE:
+		case TF_WEAPON_SNIPERRIFLE_CLASSIC:
+		case TF_WEAPON_SNIPERRIFLE_DECAP:
+			return 25;
+		case TF_WEAPON_STICKBOMB:
+		case TF_WEAPON_STICKY_BALL_LAUNCHER:
+		case TF_WEAPON_REVOLVER:
+			return 24;
+		case TF_WEAPON_ROCKETLAUNCHER:
+		case TF_WEAPON_ROCKETLAUNCHER_DIRECTHIT:
+			return 20;
+		case TF_WEAPON_CANNON:
+		case TF_WEAPON_SHOTGUN_BUILDING_RESCUE:
+		case TF_WEAPON_GRENADELAUNCHER:
+		case TF_WEAPON_FLAREGUN:
+			return 16;
+		case TF_WEAPON_COMPOUND_BOW:
+			return 12;
+		default:
+			break;
+		}
+		break;
+	}
+	}
+
+	return 32;
+}
+
+std::string SDK::GetLevelName()
+{
+	const std::string name = I::EngineClient->GetLevelName();
+	const char* data = name.data();
+	const size_t length = name.length();
+	size_t slash = 0;
+	size_t bsp = length;
+
+	for (size_t i = length - 1; i != std::string::npos; --i)
+	{
+		if (data[i] == '/')
+		{
+			slash = i + 1;
+			break;
+		}
+		if (data[i] == '.')
+			bsp = i;
+	}
+
+	return { data + slash, bsp - slash };
 }

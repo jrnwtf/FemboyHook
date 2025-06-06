@@ -5,6 +5,8 @@
 #include "../../Ticks/Ticks.h"
 #include "../../Visuals/Visuals.h"
 #include "../../Simulation/MovementSimulation/MovementSimulation.h"
+#include "../../NavBot/NavBot.h"
+#include <unordered_set>
 
 std::vector<Target_t> CAimbotHitscan::GetTargets(CTFPlayer* pLocal, CTFWeaponBase* pWeapon)
 {
@@ -14,11 +16,16 @@ std::vector<Target_t> CAimbotHitscan::GetTargets(CTFPlayer* pLocal, CTFWeaponBas
 	Vec3 vLocalPos = F::Ticks.GetShootPos();
 	Vec3 vLocalAngles = I::EngineClient->GetViewAngles();
 
+	bool bLowFPS = G::GetFPS() < Vars::Aimbot::Hitscan::LowFPSThreshold.Value;
+	int iLowFPSFlags = bLowFPS ? Vars::Aimbot::Hitscan::LowFPSOptimizations.Value : 0;
+
 	{
 		auto eGroupType = EGroupType::GROUP_INVALID;
 		if (Vars::Aimbot::General::Target.Value & Vars::Aimbot::General::TargetEnum::Players)
 			eGroupType = EGroupType::PLAYERS_ENEMIES;
-		if (SDK::AttribHookValue(0, "jarate_duration", pWeapon) > 0 && Vars::Aimbot::Hitscan::Modifiers.Value & Vars::Aimbot::Hitscan::ModifiersEnum::ExtinguishTeam)
+
+		bool bCanExtinguish = SDK::AttribHookValue(0, "jarate_duration", pWeapon) > 0;
+		if (bCanExtinguish && Vars::Aimbot::Hitscan::Modifiers.Value & Vars::Aimbot::Hitscan::ModifiersEnum::ExtinguishTeam)
 			eGroupType = EGroupType::PLAYERS_ALL;
 		if (pWeapon->GetWeaponID() == TF_WEAPON_MEDIGUN)
 			eGroupType = Vars::Aimbot::Healing::AutoHeal.Value ? EGroupType::PLAYERS_TEAMMATES : EGroupType::GROUP_INVALID;
@@ -31,7 +38,7 @@ std::vector<Target_t> CAimbotHitscan::GetTargets(CTFPlayer* pLocal, CTFWeaponBas
 
 			if (bTeammate)
 			{
-				if (SDK::AttribHookValue(0, "jarate_duration", pWeapon) > 0)
+				if (bCanExtinguish)
 				{
 					if (!pEntity->As<CTFPlayer>()->InCond(TF_COND_BURNING))
 						continue;
@@ -74,7 +81,10 @@ std::vector<Target_t> CAimbotHitscan::GetTargets(CTFPlayer* pLocal, CTFWeaponBas
 		}
 	}
 
-	if (Vars::Aimbot::General::Target.Value & Vars::Aimbot::General::TargetEnum::Stickies)
+	// Check for other target types only if we have space (for low FPS)
+	bool bHasSpace = !Vars::Aimbot::Hitscan::TargetEveryone.Value && (!bLowFPS || !(iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::TargetAll) || vTargets.size() < 2);
+
+	if (bHasSpace && (Vars::Aimbot::General::Target.Value & Vars::Aimbot::General::TargetEnum::Stickies))
 	{
 		for (auto pEntity : H::Entities.GetGroup(EGroupType::WORLD_PROJECTILES))
 		{
@@ -92,7 +102,7 @@ std::vector<Target_t> CAimbotHitscan::GetTargets(CTFPlayer* pLocal, CTFWeaponBas
 		}
 	}
 
-	if (Vars::Aimbot::General::Target.Value & Vars::Aimbot::General::TargetEnum::NPCs)
+	if (bHasSpace && (Vars::Aimbot::General::Target.Value & Vars::Aimbot::General::TargetEnum::NPCs))
 	{
 		for (auto pEntity : H::Entities.GetGroup(EGroupType::WORLD_NPC))
 		{
@@ -110,7 +120,7 @@ std::vector<Target_t> CAimbotHitscan::GetTargets(CTFPlayer* pLocal, CTFWeaponBas
 		}
 	}
 
-	if (Vars::Aimbot::General::Target.Value & Vars::Aimbot::General::TargetEnum::Bombs)
+	if (bHasSpace && (Vars::Aimbot::General::Target.Value & Vars::Aimbot::General::TargetEnum::Bombs))
 	{
 		for (auto pEntity : H::Entities.GetGroup(EGroupType::WORLD_BOMBS))
 		{
@@ -135,9 +145,94 @@ std::vector<Target_t> CAimbotHitscan::SortTargets(CTFPlayer* pLocal, CTFWeaponBa
 {
 	auto vTargets = GetTargets(pLocal, pWeapon);
 
+	// Apply low FPS optimizations if needed
+	bool bLowFPS = G::GetFPS() < Vars::Aimbot::Hitscan::LowFPSThreshold.Value;
+	int iLowFPSFlags = bLowFPS ? Vars::Aimbot::Hitscan::LowFPSOptimizations.Value : 0;
+	
+	// Static variable for tracking when we last processed targets
+	static float flLastTargetProcessTime = 0.0f;
+	
+	// Skip target processing if ReduceTargetProcessing is enabled
+	if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceTargetProcessing))
+	{
+		float flCurrentTime = I::GlobalVars->curtime;
+		if (flCurrentTime - flLastTargetProcessTime < 0.1f) // Process targets only every 100ms
+		{
+			static std::vector<Target_t> vCachedTargets;
+			return vCachedTargets;
+		}
+		flLastTargetProcessTime = I::GlobalVars->curtime;
+	}
+	
+	// Apply FOV-based culling
+	if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::FOVBasedCulling))
+	{
+		// Use a smaller FOV for culling targets when FPS is low
+		float flReducedFOV = Vars::Aimbot::General::AimFOV.Value * 0.7f;
+		vTargets.erase(std::remove_if(vTargets.begin(), vTargets.end(), 
+			[flReducedFOV](const Target_t& target) { 
+				return target.m_flFOVTo > flReducedFOV; 
+			}), vTargets.end());
+	}
+	
+	if (Vars::Aimbot::Hitscan::TargetEveryone.Value || (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::TargetAll)))
+	{
+		std::sort(vTargets.begin(), vTargets.end(), [](const Target_t& a, const Target_t& b) -> bool
+		{
+			return a.m_flDistTo < b.m_flDistTo;
+		});
+		
+		// Save the targets for future use with ReduceTargetProcessing
+		if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceTargetProcessing))
+		{
+			static std::vector<Target_t> vCachedTargets;
+			vCachedTargets = vTargets;
+		}
+		
+		return vTargets;
+	}
+
+	// If we're using "OnlyTargetClosest" optimization, only keep the closest target
+	if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::OnlyTargetClosest) && !vTargets.empty())
+	{
+		std::sort(vTargets.begin(), vTargets.end(), [](const Target_t& a, const Target_t& b) -> bool
+		{
+			return a.m_flDistTo < b.m_flDistTo;
+		});
+		vTargets.resize(1);
+		
+		// Save the target for future use with ReduceTargetProcessing
+		if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceTargetProcessing))
+		{
+			static std::vector<Target_t> vCachedTargets;
+			vCachedTargets = vTargets;
+		}
+		
+		return vTargets;
+	}
+
 	F::AimbotGlobal.SortTargets(vTargets, Vars::Aimbot::General::TargetSelection.Value);
+
+	// Prioritize navbot target
+	if (Vars::Aimbot::General::PrioritizeNavbot.Value && F::NavBot.m_iStayNearTargetIdx)
+	{
+		std::sort((vTargets).begin(), (vTargets).end(), [&](const Target_t& a, const Target_t& b) -> bool
+				  {
+					  return a.m_pEntity->entindex() == F::NavBot.m_iStayNearTargetIdx && b.m_pEntity->entindex() != F::NavBot.m_iStayNearTargetIdx;
+				  });
+	}
+
 	vTargets.resize(std::min(size_t(Vars::Aimbot::General::MaxTargets.Value), vTargets.size()));
-	F::AimbotGlobal.SortPriority(vTargets);
+	if (!Vars::Aimbot::General::PrioritizeNavbot.Value || !F::NavBot.m_iStayNearTargetIdx)
+		F::AimbotGlobal.SortPriority(vTargets);
+	
+	// Save the targets for future use with ReduceTargetProcessing
+	if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceTargetProcessing))
+	{
+		static std::vector<Target_t> vCachedTargets;
+		vCachedTargets = vTargets;
+	}
+	
 	return vTargets;
 }
 
@@ -270,6 +365,14 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 	if (Vars::Aimbot::General::Ignore.Value & Vars::Aimbot::General::IgnoreEnum::Unsimulated && H::Entities.GetChoke(tTarget.m_pEntity->entindex()) > Vars::Aimbot::General::TickTolerance.Value)
 		return false;
 
+	bool bLowFPS = G::GetFPS() < Vars::Aimbot::Hitscan::LowFPSThreshold.Value;
+	int iLowFPSFlags = bLowFPS ? Vars::Aimbot::Hitscan::LowFPSOptimizations.Value : 0;
+	bool bSkipNonEssentialCalcs = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::SkipNonEssentialCalculations);
+	bool bReduceAnimationProcessing = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceAnimationProcessing);
+	bool bSimplifiedCollision = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::SimplifiedCollision);
+	bool bDynamicPredictionQuality = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::DynamicPredictionQuality);
+	bool bReduceMemoryUsage = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceMemoryUsage);
+
 	Vec3 vEyePos = pLocal->GetShootPos(), vPeekPos = {};
 	const float flMaxRange = powf(pWeapon->GetRange(), 2.f);
 
@@ -286,19 +389,89 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 		vRecords = F::Backtrack.GetValidRecords(vRecords, pLocal);
 		if (vRecords.empty())
 			return false;
+		
+		// Optimize backtracking records
+		if (bLowFPS)
+		{
+			// Skip backtracking completely or use only 1 record if low FPS
+			if ((iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::SkipBacktracking) || 
+				bSkipNonEssentialCalcs || bDynamicPredictionQuality || bReduceAnimationProcessing)
+			{
+				if (vRecords.size() > 1)
+					vRecords.resize(1);
+			}
+			
+			// Use fewer backtrack records based on how low FPS is
+			else if (bReduceMemoryUsage && vRecords.size() > 2) 
+			{
+				float fpsRatio = G::GetFPS() / Vars::Aimbot::Hitscan::LowFPSThreshold.Value;
+				int recordLimit = std::max(1, int(vRecords.size() * fpsRatio));
+				vRecords.resize(recordLimit);
+			}
+		}
 	}
 	else
 	{
 		matrix3x4 aBones[MAXSTUDIOBONES];
-		if (!tTarget.m_pEntity->SetupBones(aBones, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, tTarget.m_pEntity->m_flSimulationTime()))
-			return false;
+		
+		// Use simplified animation processing if enabled
+		if (bReduceAnimationProcessing)
+		{
+			// Use a simplified setup bones call that skips non-essential bones
+			if (!tTarget.m_pEntity->SetupBones(aBones, MAXSTUDIOBONES, BONE_USED_BY_HITBOX, tTarget.m_pEntity->m_flSimulationTime()))
+				return false;
+		}
+		else
+		{
+			// Use the full setup bones call
+			if (!tTarget.m_pEntity->SetupBones(aBones, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, tTarget.m_pEntity->m_flSimulationTime()))
+				return false;
+		}
 
-		F::Backtrack.m_tRecord = { tTarget.m_pEntity->m_flSimulationTime(), tTarget.m_pEntity->m_vecOrigin(), Vec3(), Vec3(), *reinterpret_cast<BoneMatrix*>(&aBones) };
+		std::vector<HitboxInfo> vHitboxInfos{};
+		
+		// Use simplified collision for entity bounds
+		if (bSimplifiedCollision)
+		{
+			// Only process essential hitboxes instead of all of them
+			int essentialHitboxes[] = { HITBOX_HEAD, HITBOX_BODY, HITBOX_CHEST };
+			
+			for (int i = 0; i < sizeof(essentialHitboxes) / sizeof(int); i++) 
+			{
+				int nHitbox = essentialHitboxes[i];
+				auto pBox = pSet->pHitbox(nHitbox);
+				if (!pBox) continue;
+
+				// Use simpler collision bounds
+				Vec3 iMin = pBox->bbmin, iMax = pBox->bbmax;
+				int iBone = pBox->bone;
+				Vec3 vCenter{};
+				Math::VectorTransform((iMin + iMax) / 2, aBones[iBone], vCenter);
+				vHitboxInfos.emplace_back(iBone, nHitbox, vCenter, iMin, iMax);
+			}
+		}
+		else
+		{
+			// Process all hitboxes normally
+			for (int nHitbox = 0; nHitbox < pSet->numhitboxes; nHitbox++)
+			{
+				auto pBox = pSet->pHitbox(nHitbox);
+				if (!pBox) continue;
+
+				const Vec3 iMin = pBox->bbmin, iMax = pBox->bbmax;
+				const int iBone = pBox->bone;
+				Vec3 vCenter{};
+				Math::VectorTransform((iMin + iMax) / 2, aBones[iBone], vCenter);
+				vHitboxInfos.emplace_back(iBone, nHitbox, vCenter, iMin, iMax);
+			}
+		}
+		
+		F::Backtrack.m_tRecord = { tTarget.m_pEntity->m_flSimulationTime(), tTarget.m_pEntity->m_vecOrigin(), Vec3(), Vec3(), *reinterpret_cast<BoneMatrix*>(&aBones), vHitboxInfos };
 		vRecords = { &F::Backtrack.m_tRecord };
 	}
 
 	float flSpread = pWeapon->GetWeaponSpread();
-	if (flSpread && Vars::Aimbot::General::HitscanPeek.Value)
+	if (flSpread && !bSkipNonEssentialCalcs && Vars::Aimbot::General::HitscanPeek.Value)
 		vPeekPos = pLocal->GetShootPos() + pLocal->m_vecVelocity() * TICKS_TO_TIME(-Vars::Aimbot::General::HitscanPeek.Value);
 
 	// if we're doubletapping, we can't change viewangles so work around that
@@ -352,7 +525,20 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 			if (vEyePos.DistToSqr(tTarget.m_vPos) > flMaxRange)
 				break;
 
-			if (SDK::VisPosWorld(pLocal, tTarget.m_pEntity, vEyePos, tTarget.m_vPos))
+			bool bVisCheck = true;
+			if ((bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::FastVisChecks)) || bSkipNonEssentialCalcs)
+			{
+				CGameTrace trace = {};
+				CTraceFilterHitscan filter = {}; filter.pSkip = pLocal;
+				SDK::Trace(vEyePos, tTarget.m_vPos, MASK_SHOT | CONTENTS_GRATE, &filter, &trace);
+				bVisCheck = (trace.m_pEnt && trace.m_pEnt == tTarget.m_pEntity);
+			}
+			else
+			{
+				bVisCheck = SDK::VisPosWorld(pLocal, tTarget.m_pEntity, vEyePos, tTarget.m_vPos);
+			}
+
+			if (bVisCheck)
 			{
 				Vec3 vAngles; bool bChanged = Aim(G::CurrentUserCmd->viewangles, Math::CalcAngle(vEyePos, tTarget.m_vPos), vAngles);
 				Vec3 vForward; Math::AngleVectors(vAngles, &vForward);
@@ -378,22 +564,48 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 			if (!aBones)
 				continue;
 
-			std::vector<std::tuple<const mstudiobbox_t*, int, int>> vHitboxes;
-			for (int i = 0; i < pSet->numhitboxes; i++)
+			std::vector<std::tuple<HitboxInfo, int, int>> vHitboxes;
+			for (int i = 0; i < pRecord->m_vHitboxInfos.size(); i++)
 			{
-				if (!F::AimbotGlobal.IsHitboxValid(H::Entities.GetModel(tTarget.m_pEntity->entindex()), i, Vars::Aimbot::Hitscan::Hitboxes.Value))
+				auto HitboxInfo = pRecord->m_vHitboxInfos[i];
+				const int nHitbox = HitboxInfo.m_nHitbox;
+
+				if (bLowFPS)
+				{
+					if (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceHitboxes)
+					{
+						if (nHitbox != HITBOX_HEAD && nHitbox != HITBOX_BODY && nHitbox != HITBOX_CHEST)
+							continue;
+					}
+					
+					if (bSkipNonEssentialCalcs)
+					{
+						if (pWeapon->GetWeaponID() == TF_WEAPON_SNIPERRIFLE || 
+							pWeapon->GetWeaponID() == TF_WEAPON_SNIPERRIFLE_DECAP || 
+							pWeapon->GetWeaponID() == TF_WEAPON_SNIPERRIFLE_CLASSIC)
+						{
+							if (G::CanHeadshot) {
+								if (nHitbox != HITBOX_HEAD)
+									continue;
+							}
+							else if (nHitbox != HITBOX_BODY)
+								continue;
+						}
+						else if (nHitbox != HITBOX_BODY)
+							continue;
+					}
+				}
+
+				if (!F::AimbotGlobal.IsHitboxValid(H::Entities.GetModel(tTarget.m_pEntity->entindex()), nHitbox, Vars::Aimbot::Hitscan::Hitboxes.Value))
 					continue;
 
-				auto pBox = pSet->pHitbox(i);
-				if (!pBox) continue;
-
-				int iPriority = GetHitboxPriority(i, pLocal, pWeapon, tTarget.m_pEntity);
-				vHitboxes.emplace_back(pBox, i, iPriority);
+				int iPriority = GetHitboxPriority(nHitbox, pLocal, pWeapon, tTarget.m_pEntity);
+				vHitboxes.emplace_back(HitboxInfo, nHitbox, iPriority);
 			}
 			std::sort(vHitboxes.begin(), vHitboxes.end(), [&](const auto& a, const auto& b) -> bool
-				{
-					return std::get<2>(a) < std::get<2>(b);
-				});
+					  {
+						  return std::get<2>(a) < std::get<2>(b);
+					  });
 
 			float flModelScale = tTarget.m_pEntity->As<CBaseAnimating>()->m_flModelScale();
 			float flBoneScale = std::max(Vars::Aimbot::Hitscan::BoneSizeMinimumScale.Value, Vars::Aimbot::Hitscan::PointScale.Value / 100.f);
@@ -406,20 +618,19 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 
 			const matrix3x4 mTransform = { { 1, 0, 0, pRecord->m_vOrigin.x }, { 0, 1, 0, pRecord->m_vOrigin.y }, { 0, 0, 1, pRecord->m_vOrigin.z } };
 
-			for (auto& [pBox, iHitbox, _] : vHitboxes)
+			for (auto& [tHitboxInfo, iHitbox, _] : vHitboxes)
 			{
-				Vec3 vAngle; Math::MatrixAngles(aBones[pBox->bone], vAngle);
-				Vec3 vMins = pBox->bbmin;
-				Vec3 vMaxs = pBox->bbmax;
+				Vec3 vAngle; Math::MatrixAngles(aBones[tHitboxInfo.m_iBone], vAngle);
+				Vec3 vMins = tHitboxInfo.m_iMin;
+				Vec3 vMaxs = tHitboxInfo.m_iMax;
 				Vec3 vCheckMins = (vMins + flBoneSubtract / flModelScale) * flBoneScale;
 				Vec3 vCheckMaxs = (vMaxs - flBoneSubtract / flModelScale) * flBoneScale;
 
 				Vec3 vOffset;
 				{
-					Vec3 vOrigin, vCenter;
-					Math::VectorTransform({}, aBones[pBox->bone], vOrigin);
-					Math::VectorTransform((vMins + vMaxs) / 2, aBones[pBox->bone], vCenter);
-					vOffset = vCenter - vOrigin;
+					Vec3 vOrigin;
+					Math::VectorTransform({}, aBones[tHitboxInfo.m_iBone], vOrigin);
+					vOffset = tHitboxInfo.m_vCenter - vOrigin;
 				}
 
 				std::vector<Vec3> vPoints = { Vec3() };
@@ -429,7 +640,11 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 						|| Vars::Aimbot::General::AimType.Value == Vars::Aimbot::General::AimTypeEnum::Assistive)
 						&& !Vars::Aimbot::General::AssistStrength.Value;
 
-					if (!bTriggerbot)
+					if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::SimplifyScans))
+					{
+						vPoints = { Vec3() };
+					}
+					else if (!bTriggerbot)
 					{
 						float flScale = Vars::Aimbot::Hitscan::PointScale.Value / 100;
 						Vec3 vMinsS = (vMins - vMaxs) / 2 * flScale;
@@ -451,7 +666,7 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 
 				for (auto& vPoint : vPoints)
 				{
-					Vec3 vOrigin; Math::VectorTransform(vPoint, aBones[pBox->bone], vOrigin); vOrigin += vOffset;
+					Vec3 vOrigin; Math::VectorTransform(vPoint, aBones[tHitboxInfo.m_iBone], vOrigin); vOrigin += vOffset;
 
 					if (vEyePos.DistToSqr(vOrigin) > flMaxRange)
 						continue;
@@ -463,17 +678,30 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 							goto nextTick; // if we can't hit our primary hitbox, don't bother
 					}
 
+					bool bVisCheck = true;
+					if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::FastVisChecks))
+					{
+						CGameTrace trace = {};
+						CTraceFilterHitscan filter = {}; filter.pSkip = pLocal;
+						SDK::Trace(vEyePos, vOrigin, MASK_SHOT | CONTENTS_GRATE, &filter, &trace);
+						bVisCheck = (trace.m_pEnt && trace.m_pEnt == tTarget.m_pEntity);
+					}
+					else
+					{
+						bVisCheck = SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vOrigin);
+					}
+
 					Vec3 vAngles; bool bChanged = Aim(G::CurrentUserCmd->viewangles, Math::CalcAngle(vEyePos, vOrigin), vAngles);
 					Vec3 vForward; Math::AngleVectors(vAngles, &vForward);
 					float flDist = vEyePos.DistTo(vOrigin);
 
-					if (bChanged || SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vOrigin))
+					if (bChanged || bVisCheck)
 					{
 						// for the time being, no vischecks against other hitboxes
-						if ((!bChanged || Math::RayToOBB(vEyePos, vForward, vCheckMins, vCheckMaxs, aBones[pBox->bone], flModelScale) && SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vEyePos + vForward * flDist))
+						if ((!bChanged || Math::RayToOBB(vEyePos, vForward, vCheckMins, vCheckMaxs, aBones[tHitboxInfo.m_iBone], flModelScale) && SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vEyePos + vForward * flDist))
 							&& Math::RayToOBB(vEyePos, vForward, vHullMins, vHullMaxs, mTransform))
 						{
-							iTargetBone = pBox->bone;
+							iTargetBone = tHitboxInfo.m_iBone;
 
 							tTarget.m_vAngleTo = vAngles;
 							tTarget.m_pRecord = pRecord;
@@ -482,7 +710,7 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 							tTarget.m_bBacktrack = true;
 							return true;
 						}
-						else if (bChanged && SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vOrigin))
+						else if (bChanged && bVisCheck)
 						{
 							if (iReturn != 2 || vAngles.DeltaAngle(G::CurrentUserCmd->viewangles).Length2D() < tTarget.m_vAngleTo.DeltaAngle(G::CurrentUserCmd->viewangles).Length2D())
 								tTarget.m_vAngleTo = vAngles;
@@ -506,7 +734,12 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 			const matrix3x4& mTransform = pCollideable ? pCollideable->CollisionToWorldTransform() : tTarget.m_pEntity->RenderableToWorldTransform();
 
 			std::vector<Vec3> vPoints = { Vec3() };
-			//if (Vars::Aimbot::Hitscan::PointScale.Value > 0.f)
+			
+			if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::SimplifyScans))
+			{
+				vPoints = { Vec3() };
+			}
+			else
 			{
 				bool bTriggerbot = (Vars::Aimbot::General::AimType.Value == Vars::Aimbot::General::AimTypeEnum::Smooth
 					|| Vars::Aimbot::General::AimType.Value == Vars::Aimbot::General::AimTypeEnum::Assistive)
@@ -539,11 +772,24 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 				if (vEyePos.DistToSqr(vOrigin) > flMaxRange)
 					continue;
 
+				bool bVisCheck = true;
+				if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::FastVisChecks))
+				{
+					CGameTrace trace = {};
+					CTraceFilterHitscan filter = {}; filter.pSkip = pLocal;
+					SDK::Trace(vEyePos, vOrigin, MASK_SHOT | CONTENTS_GRATE, &filter, &trace);
+					bVisCheck = (trace.m_pEnt && trace.m_pEnt == tTarget.m_pEntity);
+				}
+				else
+				{
+					bVisCheck = SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vOrigin);
+				}
+
 				Vec3 vAngles; bool bChanged = Aim(G::CurrentUserCmd->viewangles, Math::CalcAngle(vEyePos, vOrigin), vAngles);
 				Vec3 vForward; Math::AngleVectors(vAngles, &vForward);
 				float flDist = vEyePos.DistTo(vOrigin);
 
-				if (bChanged || SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vOrigin))
+				if (bChanged || bVisCheck)
 				{
 					if (!bChanged || Math::RayToOBB(vEyePos, vForward, vCheckMins, vCheckMaxs, mTransform) && SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vEyePos + vForward * flDist))
 					{
@@ -552,7 +798,7 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 						tTarget.m_vPos = vOrigin;
 						return true;
 					}
-					else if (bChanged && SDK::VisPos(pLocal, tTarget.m_pEntity, vEyePos, vOrigin))
+					else if (bChanged && bVisCheck)
 					{
 						if (iReturn != 2 || vAngles.DeltaAngle(G::CurrentUserCmd->viewangles).Length2D() < tTarget.m_vAngleTo.DeltaAngle(G::CurrentUserCmd->viewangles).Length2D())
 							tTarget.m_vAngleTo = vAngles;
@@ -569,12 +815,27 @@ int CAimbotHitscan::CanHit(Target_t& tTarget, CTFPlayer* pLocal, CTFWeaponBase* 
 	return iReturn;
 }
 
-
-
 /* Returns whether AutoShoot should fire */
 bool CAimbotHitscan::ShouldFire(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd, const Target_t& tTarget)
 {
 	if (!Vars::Aimbot::General::AutoShoot.Value) return false;
+
+	if (Vars::Aimbot::Hitscan::ShootingDelayEnabled.Value)
+	{
+		float flCurrentTime = I::GlobalVars->curtime;
+		if (flCurrentTime - m_flLastShotTime < Vars::Aimbot::Hitscan::ShootingDelay.Value)
+			return false;
+	}
+	
+	bool bLowFPS = G::GetFPS() < Vars::Aimbot::Hitscan::LowFPSThreshold.Value;
+	int iLowFPSFlags = bLowFPS ? Vars::Aimbot::Hitscan::LowFPSOptimizations.Value : 0;
+	
+	if (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::LimitShootingRate))
+	{
+		float flCurrentTime = I::GlobalVars->curtime;
+		if (flCurrentTime - m_flLastShotTime < Vars::Aimbot::Hitscan::LowFPSShootingDelay.Value)
+			return false;
+	}
 
 	if (Vars::Aimbot::Hitscan::Modifiers.Value & Vars::Aimbot::Hitscan::ModifiersEnum::WaitForHeadshot)
 	{
@@ -702,6 +963,37 @@ void CAimbotHitscan::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pC
 	const int iLastAimType = iStaticAimType;
 	const int iRealAimType = Vars::Aimbot::General::AimType.Value;
 
+	bool bLowFPS = G::GetFPS() < Vars::Aimbot::Hitscan::LowFPSThreshold.Value;
+	int iLowFPSFlags = bLowFPS ? Vars::Aimbot::Hitscan::LowFPSOptimizations.Value : 0;
+	bool bTargetAll = Vars::Aimbot::Hitscan::TargetEveryone.Value || (bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::TargetAll));
+
+	// Apply additional optimizations for low FPS
+	bool bDisableBulletTracers = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::DisableBulletTracers);
+	bool bReduceViewModelEffects = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::ReduceViewModelEffects);
+	bool bSkipNonEssentialCalcs = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::SkipNonEssentialCalculations);
+	bool bDisableExtraVisualProcessing = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::DisableExtraVisualProcessing);
+	bool bAdaptiveTickProcessing = bLowFPS && (iLowFPSFlags & Vars::Aimbot::Hitscan::LowFPSOptimizationsEnum::AdaptiveTickProcessing);
+
+	// Implement Adaptive Tick Processing - skip processing on some ticks when FPS is very low
+	// This significantly reduces CPU load while maintaining functionality
+	if (bAdaptiveTickProcessing)
+	{
+		static int iTickCounter = 0;
+		iTickCounter++;
+		
+		// Skip every other tick when FPS is very low
+		if (G::GetFPS() < Vars::Aimbot::Hitscan::LowFPSThreshold.Value * 0.5f && iTickCounter % 2 != 0)
+		{
+			return;
+		}
+		
+		// Skip 2 out of 3 ticks when FPS is extremely low
+		if (G::GetFPS() < Vars::Aimbot::Hitscan::LowFPSThreshold.Value * 0.3f && iTickCounter % 3 != 0)
+		{
+			return;
+		}
+	}
+
 	switch (nWeaponID)
 	{
 	case TF_WEAPON_SNIPERRIFLE_CLASSIC:
@@ -759,8 +1051,14 @@ void CAimbotHitscan::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pC
 	if (!G::AimTarget.m_iEntIndex)
 		G::AimTarget = { vTargets.front().m_pEntity->entindex(), I::GlobalVars->tickcount, 0 };
 
+	static std::unordered_set<int> targetedEntities;
+	targetedEntities.clear();
+
 	for (auto& tTarget : vTargets)
 	{
+		if (bTargetAll && targetedEntities.find(tTarget.m_pEntity->entindex()) != targetedEntities.end())
+			continue;
+
 		if (nWeaponID == TF_WEAPON_MEDIGUN && pWeapon->As<CWeaponMedigun>()->m_hHealingTarget().Get() == tTarget.m_pEntity)
 		{
 			if (G::LastUserCmd->buttons & IN_ATTACK)
@@ -774,7 +1072,13 @@ void CAimbotHitscan::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pC
 		{
 			G::AimTarget = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount, 0 };
 			Aim(pCmd, tTarget.m_vAngleTo);
-			break;
+			
+			if (bTargetAll)
+				targetedEntities.insert(tTarget.m_pEntity->entindex());
+				
+			if (!bTargetAll)
+				break;
+			continue;
 		}
 
 		G::AimTarget = { tTarget.m_pEntity->entindex(), I::GlobalVars->tickcount };
@@ -814,35 +1118,40 @@ void CAimbotHitscan::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pC
 
 		if (G::Attacking == 1 && nWeaponID != TF_WEAPON_LASER_POINTER)
 		{
+			m_flLastShotTime = I::GlobalVars->curtime;
+			
 			if (tTarget.m_pEntity->IsPlayer())
 				F::Resolver.HitscanRan(pLocal, tTarget.m_pEntity->As<CTFPlayer>(), pWeapon, tTarget.m_nAimedHitbox);
 
 			if (tTarget.m_bBacktrack)
-				pCmd->tick_count = TIME_TO_TICKS(tTarget.m_pRecord->m_flSimTime) + TIME_TO_TICKS(F::Backtrack.GetFakeInterp());
+				pCmd->tick_count = TIME_TO_TICKS(tTarget.m_pRecord->m_flSimTime + F::Backtrack.GetFakeInterp());
 
-			bool bLine = Vars::Visuals::Line::Enabled.Value;
-			bool bBoxes = Vars::Visuals::Hitbox::BonesEnabled.Value & Vars::Visuals::Hitbox::BonesEnabledEnum::OnShot;
-			if (G::CanPrimaryAttack && (bLine || bBoxes))
+			if (!bDisableBulletTracers && !bDisableExtraVisualProcessing)
 			{
-				G::LineStorage.clear();
-				G::BoxStorage.clear();
-				G::PathStorage.clear();
-
-				if (bLine)
+				bool bLine = Vars::Visuals::Line::Enabled.Value;
+				bool bBoxes = Vars::Visuals::Hitbox::BonesEnabled.Value & Vars::Visuals::Hitbox::BonesEnabledEnum::OnShot;
+				if (G::CanPrimaryAttack && (bLine || bBoxes))
 				{
-					Vec3 vEyePos = pLocal->GetShootPos();
-					float flDist = vEyePos.DistTo(tTarget.m_vPos);
-					Vec3 vForward; Math::AngleVectors(tTarget.m_vAngleTo + pLocal->m_vecPunchAngle(), &vForward);
+					G::LineStorage.clear();
+					G::BoxStorage.clear();
+					G::PathStorage.clear();
 
-					if (Vars::Colors::Line.Value.a)
-						G::LineStorage.emplace_back(std::pair<Vec3, Vec3>(vEyePos, vEyePos + vForward * flDist), I::GlobalVars->curtime + Vars::Visuals::Line::DrawDuration.Value, Vars::Colors::Line.Value);
-					if (Vars::Colors::LineClipped.Value.a)
-						G::LineStorage.emplace_back(std::pair<Vec3, Vec3>(vEyePos, vEyePos + vForward * flDist), I::GlobalVars->curtime + Vars::Visuals::Line::DrawDuration.Value, Vars::Colors::LineClipped.Value, true);
-				}
-				if (bBoxes)
-				{
-					auto vBoxes = F::Visuals.GetHitboxes(tTarget.m_pRecord->m_BoneMatrix.m_aBones, tTarget.m_pEntity->As<CBaseAnimating>(), {}, tTarget.m_nAimedHitbox);
-					G::BoxStorage.insert(G::BoxStorage.end(), vBoxes.begin(), vBoxes.end());
+					if (bLine)
+					{
+						Vec3 vEyePos = pLocal->GetShootPos();
+						float flDist = vEyePos.DistTo(tTarget.m_vPos);
+						Vec3 vForward; Math::AngleVectors(tTarget.m_vAngleTo + pLocal->m_vecPunchAngle(), &vForward);
+
+						if (Vars::Colors::Line.Value.a)
+							G::LineStorage.emplace_back(std::pair<Vec3, Vec3>(vEyePos, vEyePos + vForward * flDist), I::GlobalVars->curtime + Vars::Visuals::Line::DrawDuration.Value, Vars::Colors::Line.Value);
+						if (Vars::Colors::LineClipped.Value.a)
+							G::LineStorage.emplace_back(std::pair<Vec3, Vec3>(vEyePos, vEyePos + vForward * flDist), I::GlobalVars->curtime + Vars::Visuals::Line::DrawDuration.Value, Vars::Colors::LineClipped.Value, true);
+					}
+					if (bBoxes && !bSkipNonEssentialCalcs)
+					{
+						auto vBoxes = F::Visuals.GetHitboxes(tTarget.m_pRecord->m_BoneMatrix.m_aBones, tTarget.m_pEntity->As<CBaseAnimating>(), {}, tTarget.m_nAimedHitbox);
+						G::BoxStorage.insert(G::BoxStorage.end(), vBoxes.begin(), vBoxes.end());
+					}
 				}
 			}
 		}
@@ -858,5 +1167,11 @@ void CAimbotHitscan::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pC
 			}
 		}
 		break;
+		
+		//if (bTargetAll)
+			//targetedEntities.insert(tTarget.m_pEntity->entindex());
+			
+		//if (!bTargetAll)
+			//break;
 	}
 }

@@ -150,7 +150,6 @@ void COutput::Event(IGameEvent* pEvent, uint32_t uHash, CTFPlayer* pLocal)
 			PlayerInfo_t pi{};
 			if (n == pLocal->entindex() || !I::EngineClient->GetPlayerInfo(n, &pi) || pi.fakeplayer
 				|| H::Entities.InParty(pi.friendsID)) // ignore party
-				continue;
 
 			TagsOnJoin(pi.name, pi.friendsID);
 			AliasOnJoin(pi.name, pi.friendsID);
@@ -280,6 +279,7 @@ void COutput::AliasOnJoin(std::string sName, uint32_t uFriendsID)
 	std::string sChat = std::format("{}{}\x1 has the alias \"{}{}\x1\"", (sYellow), (sName), (sYellow), (sAlias));
 	OutputInfo(Vars::Logging::Tags::LogTo.Value, "Aliases", sOutput, sChat);
 }
+
 void COutput::AliasChanged(std::string sName, std::string sAction, std::string sAlias)
 {
 	if (!(Vars::Logging::Logs.Value & Vars::Logging::LogsEnum::Aliases))
@@ -295,28 +295,28 @@ void COutput::ReportResolver(int iIndex, std::string sAction, std::string sAxis,
 {
 	ReportResolver(iIndex, sAction, sAxis, std::format("{}", flValue));
 }
+
 void COutput::ReportResolver(int iIndex, std::string sAction, std::string sAxis, bool bValue)
 {
 	ReportResolver(iIndex, sAction, sAxis, std::format("{}", bValue));
 }
+
 void COutput::ReportResolver(int iIndex, std::string sAction, std::string sAxis, std::string sValue)
 {
 	if (!(Vars::Logging::Logs.Value & Vars::Logging::LogsEnum::Resolver))
 		return;
-
 	PlayerInfo_t pi{};
 	if (!I::EngineClient->GetPlayerInfo(iIndex, &pi))
 		return;
-
 	auto sName = F::PlayerUtils.GetPlayerName(iIndex, pi.name);
 	std::string sOutput = std::format("{} {} of {} to {}", (sAction), (sAxis), (sName), (sValue));
 	std::string sChat = std::format("{} {}{}\x1 of {}{}\x1 to {}{}\x1", (sAction), (sYellow), (sAxis), (sYellow), (sName), (sYellow), (sValue));
 	OutputInfo(Vars::Logging::Tags::LogTo.Value, "Resolver", sOutput, sChat);
 }
+
 void COutput::ReportResolver(std::string sMessage)
 {
 	if (!(Vars::Logging::Logs.Value & Vars::Logging::LogsEnum::Resolver))
 		return;
-
 	OutputInfo(Vars::Logging::Tags::LogTo.Value, "Resolver", sMessage, sMessage);
 }

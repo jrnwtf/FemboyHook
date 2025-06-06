@@ -55,7 +55,7 @@ public:
 		}
 		return flN;
 	}
-
+	
 	void Start(bool bBadFontCheck = false);
 	void End();
 	void StartClipping(int x, int y, int w, int h);
@@ -71,6 +71,12 @@ public:
 	void String(const Font_t& tFont, int x, int y, const Color_t& tColor, const EAlign& eAlign, const wchar_t* wstr);
 	void StringOutlined(const Font_t& tFont, int x, int y, const Color_t& tColor, const Color_t& tColorOut, const EAlign& eAlign, const char* str);
 	void StringOutlined(const Font_t& tFont, int x, int y, const Color_t& tColor, const Color_t& tColorOut, const EAlign& eAlign, const wchar_t* wstr);
+	//void String(const Font_t& tFont, int x, int y, const Color_t& tColor, const EAlign& eAlign, const char* str, ...);
+	//void String(const Font_t& tFont, int x, int y, const Color_t& tColor, const EAlign& eAlign, const wchar_t* str, ...);
+	//void StringOutlined(const Font_t& tFont, int x, int y, const Color_t& tColor, const Color_t& tColorOut, const EAlign& eAlign, const char* str, ...);
+	//void StringOutlined(const Font_t& tFont, int x, int y, const Color_t& tColor, const Color_t& tColorOut, const EAlign& eAlign, const wchar_t* str, ...);
+	void StringWithBackground(const Font_t& tFont, int x, int y, const Color_t& tColor, const Color_t& tColorBg, const EAlign& eAlign, const char* str, ...);
+	void StringWithBackground(const Font_t& tFont, int x, int y, const Color_t& tColor, const Color_t& tColorBg, const EAlign& eAlign, const wchar_t* str, ...);
 
 	void Line(int x1, int y1, int x2, int y2, const Color_t& tColor);
 	void FillPolygon(std::vector<Vertex_t> vVertices, const Color_t& tColor);

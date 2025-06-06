@@ -4,6 +4,7 @@
 #include "../../Players/PlayerUtils.h"
 #include "../../Misc/Misc.h"
 #include "../../Aimbot/AutoRocketJump/AutoRocketJump.h"
+#include "../../NavBot/NavEngine/NavEngine.h"
 
 bool CAntiAim::AntiAimOn()
 {
@@ -31,7 +32,7 @@ bool CAntiAim::YawOn()
 
 bool CAntiAim::ShouldRun(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 {
-	if (!pLocal || !pLocal->IsAlive() || pLocal->IsAGhost() || pLocal->IsTaunting() || pLocal->m_MoveType() != MOVETYPE_WALK || pLocal->InCond(TF_COND_HALLOWEEN_KART)
+	if (!pLocal || !pLocal->IsAlive() || pLocal->IsAGhost() || (pLocal->IsTaunting() && !Vars::AntiAim::TauntSpin.Value) || pLocal->m_MoveType() != MOVETYPE_WALK || pLocal->InCond(TF_COND_HALLOWEEN_KART)
 		|| G::Attacking == 1 || F::AutoRocketJump.IsRunning() || F::Ticks.m_bDoubletap // this m_bDoubletap check can probably be removed if we fix tickbase correctly
 		|| pWeapon && pWeapon->m_iItemDefinitionIndex() == Soldier_m_TheBeggarsBazooka && pCmd->buttons & IN_ATTACK && !(G::LastUserCmd->buttons & IN_ATTACK))
 		return false;
@@ -241,6 +242,7 @@ void CAntiAim::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd, bo
 
 	if (Vars::Misc::Game::AntiCheatCompatibility.Value)
 		Math::ClampAngles(vAngles);
+
 	SDK::FixMovement(pCmd, vAngles);
 	pCmd->viewangles.x = vAngles.x;
 	pCmd->viewangles.y = vAngles.y;

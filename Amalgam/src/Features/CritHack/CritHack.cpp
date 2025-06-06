@@ -35,7 +35,26 @@ void CCritHack::Fill(const CUserCmd* pCmd, int n)
 			else
 				++it;
 		}
+		/*tStorage.m_vCritCommands.clear( );
+		tStorage.m_vSkipCommands.clear( );
+		for ( int i = 0; i < ( sizeof( no_pipe_rotation_cmdnums ) / 4 ); i++ )
+		{
+			if ( tStorage.m_vCritCommands.size( ) >= unsigned( n ) )
+				break;
 
+			const int iCmdNum = no_pipe_rotation_cmdnums[ i ];
+			if (IsCritCommand(iSlot, tStorage.m_iEntIndex, tStorage.m_flMultCritChance, iCmdNum))
+				tStorage.m_vCritCommands.push_back(iCmdNum);
+		}
+		for ( int i = 0; i < ( sizeof( no_pipe_rotation_cmdnums ) / 4 ); i++ )
+		{
+			if ( tStorage.m_vSkipCommands.size( ) >= unsigned( n ) )
+				break;
+
+			const int iCmdNum = no_pipe_rotation_cmdnums[ i ];
+			if ( IsCritCommand( iSlot, tStorage.m_iEntIndex, tStorage.m_flMultCritChance, iCmdNum, false ) )
+				tStorage.m_vSkipCommands.push_back( iCmdNum );
+		}*/
 		for (int i = 0; i < n; i++)
 		{
 			if (tStorage.m_vCritCommands.size() >= unsigned(n))
@@ -64,8 +83,11 @@ void CCritHack::Fill(const CUserCmd* pCmd, int n)
 bool CCritHack::IsCritCommand(int iSlot, int iIndex, float flMultCritChance, const i32 command_number, const bool bCrit, const bool bSafe)
 {
 	const auto uSeed = MD5_PseudoRandom(command_number) & 0x7FFFFFFF;
-	SDK::RandomSeed(DecryptOrEncryptSeed(iSlot, iIndex, uSeed));
-	const int iRandom = SDK::RandomInt(0, WEAPON_RANDOM_RANGE - 1);
+	CValve_Random* Random = new CValve_Random();
+	Random->SetSeed(DecryptOrEncryptSeed(iSlot, iIndex, uSeed));
+	//SDK::RandomSeed( DecryptOrEncryptSeed( iSlot, iIndex, uSeed ) );
+	const int iRandom = Random->RandomInt(0, WEAPON_RANDOM_RANGE - 1);//SDK::RandomInt(0, WEAPON_RANDOM_RANGE - 1);
+	delete(Random);
 
 	if (bSafe)
 	{
@@ -320,6 +342,30 @@ void CCritHack::Reset()
 
 
 
+float CCritHack::GetCost( CTFWeaponBase* pWeapon )
+{
+	static auto tf_weapon_criticals_bucket_cap = U::ConVars.FindVar("tf_weapon_criticals_bucket_cap");
+	const float flBucketCap = tf_weapon_criticals_bucket_cap->GetFloat();
+	bool bRapidFire = pWeapon->IsRapidFire();
+	float flFireRate = pWeapon->GetFireRate();
+
+	float flDamage = pWeapon->GetDamage();
+	int nProjectilesPerShot = pWeapon->GetBulletsPerShot(false);
+	if (pWeapon->GetSlot() != SLOT_MELEE && nProjectilesPerShot > 0)
+		nProjectilesPerShot = SDK::AttribHookValue(nProjectilesPerShot, "mult_bullets_per_shot", pWeapon);
+	else
+		nProjectilesPerShot = 1;
+	float flBaseDamage = flDamage *= nProjectilesPerShot;
+	if (bRapidFire)
+	{
+		flDamage *= TF_DAMAGE_CRIT_DURATION_RAPID / flFireRate;
+		if (flDamage * TF_DAMAGE_CRIT_MULTIPLIER > flBucketCap)
+			flDamage = flBucketCap / TF_DAMAGE_CRIT_MULTIPLIER;
+	}
+
+	return flDamage * TF_DAMAGE_CRIT_MULTIPLIER;
+}
+
 void CCritHack::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 {
 	if (!pLocal || !pWeapon || !pLocal->IsAlive() || !I::EngineClient->IsInGame())
@@ -339,7 +385,7 @@ void CCritHack::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 
 	if (pWeapon->GetWeaponID() == TF_WEAPON_MINIGUN && pCmd->buttons & IN_ATTACK)
 		pCmd->buttons &= ~IN_ATTACK2;
-	
+
 	bool bAttacking = G::Attacking /*== 1*/ || F::Ticks.m_bDoubletap || F::Ticks.m_bSpeedhack;
 	if (G::PrimaryWeaponType == EWeaponType::MELEE)
 	{
@@ -591,7 +637,8 @@ MAKE_HOOK(CTFGameStats_FindPlayerStats, S::CTFGameStats_FindPlayerStats(), void*
 
 void CCritHack::Draw(CTFPlayer* pLocal)
 {
-	if (!(Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::CritHack) || !I::EngineClient->IsInGame())
+	static auto tf_weapon_criticals = U::ConVars.FindVar("tf_weapon_criticals");
+	if (!(Vars::Menu::Indicators.Value & Vars::Menu::IndicatorsEnum::CritHack) || !I::EngineClient->IsInGame() || !tf_weapon_criticals->GetBool())
 		return;
 
 	auto pWeapon = H::Entities.GetWeapon();
@@ -599,57 +646,109 @@ void CCritHack::Draw(CTFPlayer* pLocal)
 		return;
 
 	int x = Vars::Menu::CritsDisplay.Value.x;
-	int y = Vars::Menu::CritsDisplay.Value.y + 8;
+	int y = Vars::Menu::CritsDisplay.Value.y;
+
 	const auto& fFont = H::Fonts.GetFont(FONT_INDICATORS);
-	const int nTall = fFont.m_nTall + H::Draw.Scale(1);
 
-	EAlign align = ALIGN_TOP;
-	if (x <= 100 + H::Draw.Scale(50, Scale_Round))
+	// Fixed box dimensions
+	int boxWidth = 180;
+	int boxHeight = 29;
+	int barHeight = 3;
+	int textBoxHeight = boxHeight - barHeight;
+
+	// Adjust x position to center the box
+	x -= boxWidth / 2;
+
+	// Draw black transparent background
+	Color_t bgColor = { 0, 0, 0, 180 };
+	H::Draw.GradientRect(x, y, boxWidth, textBoxHeight, bgColor, bgColor, true);
+
+	// Draw progress bar background
+	H::Draw.GradientRect(x, y + textBoxHeight, boxWidth, barHeight, bgColor, bgColor, true);
+
+	// Calculate and draw the progress bar with smooth interpolation
+	static float currentProgress = 0.0f;
+	float targetProgress = 0.0f;
+
+	std::string leftText, rightText;
+	Color_t leftColor = Vars::Menu::Theme::Active.Value;
+	Color_t rightColor = Vars::Menu::Theme::Active.Value;
+	Color_t barColor = { 0, 255, 100, 255 }; // Default green
+
+	if (!WeaponCanCrit(pWeapon))
 	{
-		x -= H::Draw.Scale(42, Scale_Round);
-		align = ALIGN_TOPLEFT;
+		leftText = "Cannot crit";
+		rightText = "DISABLED";
+		rightColor = { 200, 40, 40, 255 }; // Dark red
+		barColor = { 200, 40, 40, 255 };
+		targetProgress = 1.0f;
 	}
-	else if (x >= H::Draw.m_nScreenW - 100 - H::Draw.Scale(50, Scale_Round))
+	else
 	{
-		x += H::Draw.Scale(42, Scale_Round);
-		align = ALIGN_TOPRIGHT;
-	}
+		const auto iSlot = pWeapon->GetSlot();
+		const auto bRapidFire = pWeapon->IsRapidFire();
+		
+		if (!m_mStorage.contains(iSlot) || pWeapon->GetWeaponID() == TF_WEAPON_PASSTIME_GUN)
+			return;
+			
+		auto& tStorage = m_mStorage[iSlot];
+		if (!tStorage.m_bActive)
+			return;
 
-	auto iSlot = pWeapon->GetSlot();
-	if (!m_mStorage.contains(iSlot) || !m_mStorage[iSlot].m_bActive || pWeapon->GetWeaponID() == TF_WEAPON_PASSTIME_GUN)
-		return;
-	else if (!WeaponCanCrit(pWeapon))
-	{
-		H::Draw.String(fFont, x, y, Color_t(255, 150, 150, 255), align, "Random crits disabled");
-		return;
-	}
-
-	auto& tStorage = m_mStorage[iSlot];
-	auto bRapidFire = pWeapon->IsRapidFire();
-	float flTickBase = TICKS_TO_TIME(pLocal->m_nTickBase());
-
-	y -= nTall;
-
-	if (Vars::Misc::Game::AntiCheatCompatibility.Value)
-		H::Draw.String(fFont, x, y += nTall, Color_t(255, 150, 150, 255), align, "Anticheat compatibility");
-
-	if (tStorage.m_flDamage > 0)
-	{
-		if (pLocal->IsCritBoosted())
-			H::Draw.String(fFont, x, y += nTall, Color_t(100, 255, 255, 255), align, "Crit Boosted");
-		else if (pWeapon->m_flCritTime() > flTickBase)
+		if (tStorage.m_flDamage > 0)
 		{
-			float flTime = pWeapon->m_flCritTime() - flTickBase;
-			H::Draw.String(fFont, x, y += nTall, Color_t(100, 255, 255, 255), align, std::format("Streaming crits {:.1f}s", flTime).c_str());
-		}
-		else if (!m_bCritBanned)
-		{
-			if (tStorage.m_iAvailableCrits > 0)
+			if (pLocal->IsCritBoosted())
 			{
-				if (bRapidFire && flTickBase < pWeapon->m_flLastRapidFireCritCheckTime() + 1.f)
+				leftText = "Crit Boosted";
+				rightText = "READY";
+				rightColor = { 100, 255, 255, 255 };
+				barColor = { 100, 255, 255, 255 };
+				targetProgress = 1.0f;
+			}
+			else if (pWeapon->m_flCritTime() > I::GlobalVars->curtime)
+			{
+				const float flTime = pWeapon->m_flCritTime() - I::GlobalVars->curtime;
+				leftText = std::format("Crits: {} / {}", std::max(0, tStorage.m_iAvailableCrits), tStorage.m_iPotentialCrits);
+				rightText = "STREAMING";
+				rightColor = { 100, 255, 255, 255 };
+				barColor = { 100, 255, 255, 255 };
+				targetProgress = flTime / TF_DAMAGE_CRIT_DURATION_RAPID;
+			}
+			else if (!m_bCritBanned || iSlot == SLOT_MELEE)
+			{
+				leftText = std::format("Crits: {} / {}", std::max(0, tStorage.m_iAvailableCrits), tStorage.m_iPotentialCrits);
+				if (bRapidFire && TICKS_TO_TIME(pLocal->m_nTickBase()) < pWeapon->m_flLastRapidFireCritCheckTime() + 1.f)
 				{
-					float flTime = pWeapon->m_flLastRapidFireCritCheckTime() + 1.f - flTickBase;
-					H::Draw.String(fFont, x, y += nTall, Color_t(255, 255, 255, 255), align, std::format("Wait {:.1f}s", flTime).c_str());
+					const float flTime = pWeapon->m_flLastRapidFireCritCheckTime() + 1.f - TICKS_TO_TIME(pLocal->m_nTickBase());
+					if (flTime > 0.0001f)
+					{
+						rightText = std::format("WAIT {:.2f}s", flTime);
+						rightColor = tStorage.m_iAvailableCrits > 0 ? Color_t{ 40, 200, 40, 255 } : Color_t{ 200, 40, 40, 255 };
+						barColor = { 255, 150, 0, 255 }; // Orange for waiting
+					}
+					else
+					{
+						rightText = "STREAMING";
+						rightColor = { 100, 255, 255, 255 };
+						barColor = { 100, 255, 255, 255 };
+					}
+					targetProgress = flTime;
+				}
+				else if (tStorage.m_iAvailableCrits >= tStorage.m_iPotentialCrits)
+				{
+					rightText = "READY";
+					rightColor = { 40, 200, 40, 255 }; // Dark green
+					targetProgress = 1.0f;
+				}
+				else
+				{
+					float currentBucket = pWeapon->m_flCritTokenBucket();
+					int damageNeeded = static_cast<int>(std::ceil(tStorage.m_flCost - currentBucket));
+					rightText = std::format("DMG: {}", std::max(0, damageNeeded));
+					rightColor = tStorage.m_iAvailableCrits > 0 ? Color_t{ 40, 200, 40, 255 } : Color_t{ 200, 40, 40, 255 };
+					
+					static auto bucketCap = U::ConVars.FindVar("tf_weapon_criticals_bucket_cap");
+					targetProgress = currentBucket / bucketCap->GetFloat();
 				}
 				else
 					H::Draw.String(fFont, x, y += nTall, Color_t(150, 255, 150, 255), align, "Crit Ready");

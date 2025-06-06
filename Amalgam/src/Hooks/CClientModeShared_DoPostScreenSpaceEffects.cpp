@@ -1,3 +1,4 @@
+#ifndef TEXTMODE
 #include "../SDK/SDK.h"
 
 #include "../Features/Visuals/Chams/Chams.h"
@@ -5,6 +6,7 @@
 #include "../Features/Visuals/CameraWindow/CameraWindow.h"
 #include "../Features/Visuals/Visuals.h"
 #include "../Features/Visuals/Materials/Materials.h"
+#include "../Features/Navbot/NavEngine/NavEngine.h"
 
 MAKE_HOOK(CClientModeShared_DoPostScreenSpaceEffects, U::Memory.GetVirtual(I::ClientModeShared, 39), bool,
 	void* rcx, const CViewSetup* pSetup)
@@ -14,7 +16,7 @@ MAKE_HOOK(CClientModeShared_DoPostScreenSpaceEffects, U::Memory.GetVirtual(I::Cl
 		return CALL_ORIGINAL(rcx, pSetup);
 #endif
 
-	if (Vars::Visuals::UI::CleanScreenshots.Value && I::EngineClient->IsTakingScreenshot())
+	if (G::Unload || (Vars::Visuals::UI::CleanScreenshots.Value && I::EngineClient->IsTakingScreenshot()))
 		return CALL_ORIGINAL(rcx, pSetup);
 
 	auto pLocal = H::Entities.GetLocal();
@@ -29,7 +31,12 @@ MAKE_HOOK(CClientModeShared_DoPostScreenSpaceEffects, U::Memory.GetVirtual(I::Cl
 	if (F::CameraWindow.m_bDrawing)
 		return CALL_ORIGINAL(rcx, pSetup);
 
-	F::Visuals.DrawEffects();
+	//F::Visuals.DrawEffects();
+	F::NavEngine.Render();
+	F::Visuals.DrawBoxes();
+	F::Visuals.DrawPaths();
+	F::Visuals.DrawLines();
+	F::Visuals.DrawSightlines();
 	F::Chams.m_mEntities.clear();
 	if (!I::EngineVGui->IsGameUIVisible() && pLocal && F::Materials.m_bLoaded)
 	{
@@ -39,3 +46,4 @@ MAKE_HOOK(CClientModeShared_DoPostScreenSpaceEffects, U::Memory.GetVirtual(I::Cl
 
 	return CALL_ORIGINAL(rcx, pSetup);
 }
+#endif

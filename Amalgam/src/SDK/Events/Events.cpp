@@ -10,11 +10,14 @@
 #include "../../Features/Output/Output.h"
 #include "../../Features/Resolver/Resolver.h"
 #include "../../Features/Visuals/Visuals.h"
+#include "../../Features/Killstreak/Killstreak.h"
+#include "../../Features/Aimbot/AutoHeal/AutoHeal.h"
+#include "../../Features/Misc/HitSounds.h"
 
 bool CEventListener::Initialize()
 {
 	std::vector<const char*> vEvents = { 
-		"client_beginconnect", "client_connected", "client_disconnect", "game_newmap", "teamplay_round_start", "scorestats_accumulated_update", "mvm_reset_stats", "player_connect_client", "player_spawn", "player_changeclass", "player_hurt", "vote_cast", "item_pickup", "revive_player_notify"
+		"client_beginconnect", "client_connected", "client_disconnect", "game_newmap", "teamplay_round_start", "scorestats_accumulated_update", "mvm_reset_stats", "player_connect_client", "player_spawn", "player_changeclass", "player_hurt", "vote_cast", "item_pickup", "revive_player_notify", "vote_maps_changed"
 	};
 
 	for (auto szEvent : vEvents)
@@ -38,7 +41,7 @@ void CEventListener::Unload()
 
 void CEventListener::FireGameEvent(IGameEvent* pEvent)
 {
-	if (!pEvent)
+	if (!pEvent || G::Unload)
 		return;
 
 	auto pLocal = H::Entities.GetLocal();
@@ -51,15 +54,22 @@ void CEventListener::FireGameEvent(IGameEvent* pEvent)
 	F::CritHack.Event(pEvent, uHash, pLocal);
 	F::AutoHeal.Event(pEvent, uHash);
 	F::Misc.Event(pEvent, uHash);
+	// F::AutoHeal.Event(pEvent, uHash, pLocal);
+#ifndef TEXTMODE
 	F::Visuals.Event(pEvent, uHash);
+#endif
 	switch (uHash)
 	{
 	case FNV1A::Hash32Const("player_hurt"):
 		F::Resolver.PlayerHurt(pEvent);
 		F::CheaterDetection.ReportDamage(pEvent);
+		HitSounds::OnPlayerHurt(pEvent);
 		break;
 	case FNV1A::Hash32Const("player_spawn"):
 		F::Backtrack.SetLerp(pEvent);
+#ifndef TEXTMODE
+		F::Killstreak.PlayerSpawn(pEvent);
+#endif
 		break;
 	case FNV1A::Hash32Const("revive_player_notify"):
 	{

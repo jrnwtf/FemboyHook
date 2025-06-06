@@ -312,7 +312,7 @@ void CChams::Store(CTFPlayer* pLocal)
 			&& SDK::IsOnScreen(pEntity, !H::Entities.IsProjectile(pEntity) /*&& pEntity->GetClassID() != ETFClassID::CTFMedigunShield*/))
 			m_vEntities.emplace_back(pEntity, tChams);
 
-		if (pEntity->IsPlayer() && !pEntity->IsDormant())
+		if (pEntity->IsPlayer())
 		{
 			// backtrack
 			if (Vars::Chams::Backtrack::Enabled.Value && pEntity != pLocal)
@@ -388,8 +388,6 @@ void CChams::RenderBacktrack(const DrawModelState_t& pState, const ModelRenderIn
 	if (!pEntity || !pEntity->IsPlayer())
 		return;
 
-
-
 	pRenderContext->DepthRange(0.f, Vars::Chams::Backtrack::IgnoreZ.Value ? 0.2f : 1.f);
 
 	auto drawModel = [&](Vec3& vOrigin, const DrawModelState_t& pState, const ModelRenderInfo_t& pInfo, matrix3x4* pBoneToWorld, float flBlend)
@@ -446,8 +444,6 @@ void CChams::RenderFakeAngle(const DrawModelState_t& pState, const ModelRenderIn
 	if (!ModelRender_DrawModelExecute || !pRenderContext)
 		return;
 
-
-
 	pRenderContext->DepthRange(0.f, Vars::Chams::FakeAngle::IgnoreZ.Value ? 0.2f : 1.f);
 
 	ModelRender_DrawModelExecute->Call<void>(I::ModelRender, pState, pInfo, F::FakeAngle.aBones);
@@ -480,8 +476,6 @@ bool CChams::RenderViewmodel(void* ecx, int flags, int* iReturn)
 	auto pRenderContext = I::MaterialSystem->GetRenderContext();
 	if (!CBaseAnimating_InternalDrawModel || !pRenderContext)
 		return false;
-
-
 
 	auto& vMaterials = Vars::Chams::Viewmodel::WeaponMaterial.Value;
 
@@ -516,8 +510,6 @@ bool CChams::RenderViewmodel(const DrawModelState_t& pState, const ModelRenderIn
 	auto pRenderContext = I::MaterialSystem->GetRenderContext();
 	if (!ModelRender_DrawModelExecute || !pRenderContext)
 		return false;
-
-
 
 	auto& vMaterials = Vars::Chams::Viewmodel::HandsMaterial.Value;
 

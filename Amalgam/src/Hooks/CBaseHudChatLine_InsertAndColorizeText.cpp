@@ -7,6 +7,7 @@ MAKE_SIGNATURE(CBaseHudChatLine_InsertAndColorizeText, "client.dll", "44 89 44 2
 MAKE_HOOK(CBaseHudChatLine_InsertAndColorizeText, S::CBaseHudChatLine_InsertAndColorizeText(), void,
 	void* rcx, wchar_t* buf, int clientIndex)
 {
+#ifndef TEXTMODE
 #ifdef DEBUG_HOOKS
 	if (!Vars::Hooks::CBaseHudChatLine_InsertAndColorizeText[DEFAULT_BIND])
 		return CALL_ORIGINAL(rcx, buf, clientIndex);
@@ -95,4 +96,5 @@ MAKE_HOOK(CBaseHudChatLine_InsertAndColorizeText, S::CBaseHudChatLine_InsertAndC
 	}
 
 	CALL_ORIGINAL(rcx, const_cast<wchar_t*>(SDK::ConvertUtf8ToWide(sMessage).c_str()), clientIndex);
+#endif
 }

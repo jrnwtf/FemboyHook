@@ -149,7 +149,9 @@ static LONG APIENTRY ExceptionFilter(PEXCEPTION_POINTERS ExceptionInfo)
 	}
 	catch (...) {}
 
+#ifndef TEXTMODE
 	SDK::Output("Unhandled exception", ssErrorStream.str().c_str(), {}, false, true, false, false, false, false, MB_OK | MB_ICONERROR);
+#endif
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 

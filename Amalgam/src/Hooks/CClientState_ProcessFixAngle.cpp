@@ -1,4 +1,5 @@
 #include "../SDK/SDK.h"
+#include "../Features/Spectate/Spectate.h"
 
 #include "../Features/Spectate/Spectate.h"
 

@@ -3,6 +3,149 @@
 #include "../../Players/PlayerUtils.h"
 #include "../../Spectate/Spectate.h"
 #include "../../Simulation/MovementSimulation/MovementSimulation.h"
+#include "../../PacketManip/AntiAim/AntiAim.h"
+#include <cmath>
+
+// void CESP::DrawYawArrow(const Vec3& vOrigin, float flYaw, float flArrowLength, float flHeadSize, float flHeightOffset, 
+//                       const Color_t& mainColor, const Color_t& outlineColor, const Vec3& vScreenOrigin, 
+//                       Vars::ESP::YawArrowsStyleEnum::YawArrowsStyleEnum style, bool isReal)
+// {
+// 	float flRadians = DEG2RAD(flYaw);
+	
+// 	Vec3 vArrowEnd;
+// 	vArrowEnd.x = vOrigin.x + cos(flRadians) * flArrowLength;
+// 	vArrowEnd.y = vOrigin.y + sin(flRadians) * flArrowLength;
+// 	vArrowEnd.z = vOrigin.z; // Same height as origin
+	
+// 	float flHeadAngle1 = flRadians + DEG2RAD(150);
+// 	float flHeadAngle2 = flRadians - DEG2RAD(150);
+	
+// 	Vec3 vHeadPoint1;
+// 	vHeadPoint1.x = vArrowEnd.x + cos(flHeadAngle1) * flHeadSize;
+// 	vHeadPoint1.y = vArrowEnd.y + sin(flHeadAngle1) * flHeadSize;
+// 	vHeadPoint1.z = vArrowEnd.z;
+	
+// 	Vec3 vHeadPoint2;
+// 	vHeadPoint2.x = vArrowEnd.x + cos(flHeadAngle2) * flHeadSize;
+// 	vHeadPoint2.y = vArrowEnd.y + sin(flHeadAngle2) * flHeadSize;
+// 	vHeadPoint2.z = vArrowEnd.z;
+	
+// 	Vec3 vScreenEnd, vScreenHead1, vScreenHead2;
+// 	if (SDK::W2S(vArrowEnd, vScreenEnd) && 
+// 	    SDK::W2S(vHeadPoint1, vScreenHead1) && 
+// 	    SDK::W2S(vHeadPoint2, vScreenHead2))
+// 	{
+// 		switch (style)
+// 		{
+// 			case Vars::ESP::YawArrowsStyleEnum::Default:
+// 			{
+// 				Color_t shadowColor = { 0, 0, 0, 160 };
+// 				float shadowOffsetX = 2.0f;
+// 				float shadowOffsetY = 2.0f;
+				
+// 				H::Draw.Line(vScreenOrigin.x + shadowOffsetX, vScreenOrigin.y + shadowOffsetY, 
+// 				           vScreenEnd.x + shadowOffsetX, vScreenEnd.y + shadowOffsetY, shadowColor);
+// 				H::Draw.Line(vScreenEnd.x + shadowOffsetX, vScreenEnd.y + shadowOffsetY, 
+// 				           vScreenHead1.x + shadowOffsetX, vScreenHead1.y + shadowOffsetY, shadowColor);
+// 				H::Draw.Line(vScreenEnd.x + shadowOffsetX, vScreenEnd.y + shadowOffsetY, 
+// 				           vScreenHead2.x + shadowOffsetX, vScreenHead2.y + shadowOffsetY, shadowColor);
+				
+// 				// Draw outline
+// 				H::Draw.Line(vScreenOrigin.x-1, vScreenOrigin.y-1, vScreenEnd.x-1, vScreenEnd.y-1, outlineColor);
+// 				H::Draw.Line(vScreenOrigin.x+1, vScreenOrigin.y+1, vScreenEnd.x+1, vScreenEnd.y+1, outlineColor);
+// 				H::Draw.Line(vScreenEnd.x-1, vScreenEnd.y-1, vScreenHead1.x-1, vScreenHead1.y-1, outlineColor);
+// 				H::Draw.Line(vScreenEnd.x+1, vScreenEnd.y+1, vScreenHead1.x+1, vScreenHead1.y+1, outlineColor);
+// 				H::Draw.Line(vScreenEnd.x-1, vScreenEnd.y-1, vScreenHead2.x-1, vScreenHead2.y-1, outlineColor);
+// 				H::Draw.Line(vScreenEnd.x+1, vScreenEnd.y+1, vScreenHead2.x+1, vScreenHead2.y+1, outlineColor);
+
+// 				// Draw main lines
+// 				H::Draw.Line(vScreenOrigin.x, vScreenOrigin.y, vScreenEnd.x, vScreenEnd.y, mainColor);
+// 				H::Draw.Line(vScreenEnd.x, vScreenEnd.y, vScreenHead1.x, vScreenHead1.y, mainColor);
+// 				H::Draw.Line(vScreenEnd.x, vScreenEnd.y, vScreenHead2.x, vScreenHead2.y, mainColor);
+// 				break;
+// 			}
+// 			case Vars::ESP::YawArrowsStyleEnum::Modern:
+// 			{
+// 				Color_t shaftGradientStart = mainColor;
+// 				Color_t shaftGradientEnd = mainColor;
+// 				shaftGradientStart.a = 230;
+// 				shaftGradientEnd.a = 255;
+				
+// 				Vec3 vMidPoint;
+// 				vMidPoint.x = (vScreenOrigin.x + vScreenEnd.x) / 2.0f;
+// 				vMidPoint.y = (vScreenOrigin.y + vScreenEnd.y) / 2.0f;
+				
+// 				H::Draw.Line(vScreenOrigin.x, vScreenOrigin.y, vMidPoint.x, vMidPoint.y, shaftGradientStart);
+// 				H::Draw.Line(vMidPoint.x, vMidPoint.y, vScreenEnd.x, vScreenEnd.y, shaftGradientEnd);
+				
+// 				float perpX = -sin(flRadians) * 1.0f;
+// 				float perpY = cos(flRadians) * 1.0f;
+// 				H::Draw.Line(vScreenOrigin.x + perpX, vScreenOrigin.y + perpY, 
+// 				           vMidPoint.x + perpX, vMidPoint.y + perpY, shaftGradientStart);
+// 				H::Draw.Line(vMidPoint.x + perpX, vMidPoint.y + perpY, 
+// 				           vScreenEnd.x + perpX, vScreenEnd.y + perpY, shaftGradientEnd);
+// 				H::Draw.Line(vScreenOrigin.x - perpX, vScreenOrigin.y - perpY, 
+// 				           vMidPoint.x - perpX, vMidPoint.y - perpY, shaftGradientStart);
+// 				H::Draw.Line(vMidPoint.x - perpX, vMidPoint.y - perpY, 
+// 				           vScreenEnd.x - perpX, vScreenEnd.y - perpY, shaftGradientEnd);
+				
+// 				Vec3 vModernHead1, vModernHead2;
+// 				float largerHeadSize = flHeadSize * 1.3f;
+				
+// 				vModernHead1.x = vArrowEnd.x + cos(flHeadAngle1) * largerHeadSize;
+// 				vModernHead1.y = vArrowEnd.y + sin(flHeadAngle1) * largerHeadSize;
+// 				vModernHead1.z = vArrowEnd.z;
+				
+// 				vModernHead2.x = vArrowEnd.x + cos(flHeadAngle2) * largerHeadSize;
+// 				vModernHead2.y = vArrowEnd.y + sin(flHeadAngle2) * largerHeadSize;
+// 				vModernHead2.z = vArrowEnd.z;
+				
+// 				Vec3 vScreenModernHead1, vScreenModernHead2;
+// 				if (SDK::W2S(vModernHead1, vScreenModernHead1) && SDK::W2S(vModernHead2, vScreenModernHead2))
+// 				{
+// 					std::vector<Vertex_t> headPoints;
+// 					headPoints.push_back({ vScreenEnd.x, vScreenEnd.y });
+// 					headPoints.push_back({ vScreenModernHead1.x, vScreenModernHead1.y });
+// 					headPoints.push_back({ vScreenModernHead2.x, vScreenModernHead2.y });
+					
+// 					H::Draw.FillPolygon(headPoints, mainColor);
+					
+// 					Color_t highlightColor = mainColor;
+// 					highlightColor.r = std::min(255, highlightColor.r + 40);
+// 					highlightColor.g = std::min(255, highlightColor.g + 40);
+// 					highlightColor.b = std::min(255, highlightColor.b + 40);
+					
+// 					Vec3 vHighlightPoint;
+// 					vHighlightPoint.x = vScreenEnd.x - (cos(flRadians) * (flHeadSize * 0.3f));
+// 					vHighlightPoint.y = vScreenEnd.y - (sin(flRadians) * (flHeadSize * 0.3f));
+					
+// 					std::vector<Vertex_t> highlightPoints;
+// 					highlightPoints.push_back({ vHighlightPoint.x, vHighlightPoint.y });
+// 					highlightPoints.push_back({ (vScreenModernHead1.x + vScreenEnd.x) / 2.0f, (vScreenModernHead1.y + vScreenEnd.y) / 2.0f });
+// 					highlightPoints.push_back({ (vScreenModernHead2.x + vScreenEnd.x) / 2.0f, (vScreenModernHead2.y + vScreenEnd.y) / 2.0f });
+					
+// 					H::Draw.FillPolygon(highlightPoints, highlightColor);
+					
+// 					Color_t darkOutline = mainColor;
+// 					darkOutline.r = std::max(0, darkOutline.r - 70);
+// 					darkOutline.g = std::max(0, darkOutline.g - 70);
+// 					darkOutline.b = std::max(0, darkOutline.b - 70);
+// 					darkOutline.a = 255;
+					
+// 					H::Draw.LinePolygon(headPoints, darkOutline);
+// 				}
+// 				break;
+// 			}
+// 			default: // Fallback to default
+// 			{
+// 				H::Draw.Line(vScreenOrigin.x, vScreenOrigin.y, vScreenEnd.x, vScreenEnd.y, mainColor);
+// 				H::Draw.Line(vScreenEnd.x, vScreenEnd.y, vScreenHead1.x, vScreenHead1.y, mainColor);
+// 				H::Draw.Line(vScreenEnd.x, vScreenEnd.y, vScreenHead2.x, vScreenHead2.y, mainColor);
+// 				break;
+// 			}
+// 		}
+// 	}
+// }
 
 MAKE_SIGNATURE(CTFPlayerSharedUtils_GetEconItemViewByLoadoutSlot, "client.dll", "48 89 6C 24 ? 56 41 54 41 55 41 56 41 57 48 83 EC", 0x0);
 MAKE_SIGNATURE(CEconItemView_GetItemName, "client.dll", "40 53 48 83 EC ? 48 8B D9 C6 81 ? ? ? ? ? E8 ? ? ? ? 48 8B 8B", 0x0);
@@ -73,17 +216,25 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 		int iClassNum = pPlayer->m_iClass();
 		auto pWeapon = pPlayer->m_hActiveWeapon().Get()->As<CTFWeaponBase>();
 
+		// distance things
+		const Vec3 vDelta = pPlayer->m_vecOrigin() - pLocal->m_vecOrigin();
+		const float flDistance = vDelta.Length2D();
+		if (flDistance >= Vars::ESP::MaxDist.Value) { continue; }
+
+		const bool bDormant = pPlayer->IsDormant();
+		float flAlpha = bDormant ? Vars::ESP::DormantAlpha.Value : Vars::ESP::ActiveAlpha.Value;
+		if (Vars::ESP::Dist2Alpha.Value)
+			flAlpha = Math::RemapVal(flDistance, Vars::ESP::MaxDist.Value - 256.f, Vars::ESP::MaxDist.Value, flAlpha / 255.f, 0.f);
+
 		PlayerCache& tCache = m_mPlayerCache[pEntity];
-		tCache.m_flAlpha = (pPlayer->IsDormant() ? Vars::ESP::DormantAlpha.Value : Vars::ESP::ActiveAlpha.Value) / 255.f;
+		tCache.m_flAlpha = flAlpha;
 		tCache.m_tColor = GetColor(pLocal, pPlayer);
 		tCache.m_bBox = Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Box;
 		tCache.m_bBones = Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Bones;
+		// tCache.m_bYawArrows = Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::YawArrows;
 
 		if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Distance && !bLocal)
-		{
-			Vec3 vDelta = pPlayer->m_vecOrigin() - pLocal->m_vecOrigin();
 			tCache.m_vText.emplace_back(ESPTextEnum::Bottom, std::format("[{:.0f}M]", vDelta.Length2D() / 41), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
-		}
 
 		PlayerInfo_t pi{};
 		if (I::EngineClient->GetPlayerInfo(iIndex, &pi))
@@ -240,6 +391,55 @@ void CESP::StorePlayers(CTFPlayer* pLocal)
 						tCache.m_vText.emplace_back(ESPTextEnum::Right, std::format("HIGH KD [{} / {}]", iKills, iDeaths), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
 				}
 			}
+
+			// Add the Mafia Works feature implementation
+			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::ThatsHowMafiaWorks && pResource && pPlayer != pLocal)
+			{
+				int iKills = pResource->m_iScore(iIndex);
+				int iDeaths = pResource->m_iDeaths(iIndex);
+				int iDamage = pResource->m_iDamage(iIndex);
+				
+				// Calculate player level based on stats
+				int iLevel = 1;
+				if (iKills >= 30 && iDamage >= 10000) iLevel = 6;
+				else if (iKills >= 20 && iDamage >= 5000) iLevel = 5;
+				else if (iKills >= 15 && iDamage >= 3000) iLevel = 4;
+				else if (iKills >= 10 && iDamage >= 2000) iLevel = 3;
+				else if (iKills >= 5 && iDamage >= 500) iLevel = 2;
+				
+				// Define title based on level
+				std::string sTitle;
+				Color_t tTitleColor;
+				switch (iLevel) {
+					case 1:
+						sTitle = "Lv.1 Crook";
+						tTitleColor = Color_t(150, 150, 150, 255); // Grey
+						break;
+					case 2:
+						sTitle = "Lv.10 Gangster";
+						tTitleColor = Color_t(76, 175, 80, 255); // Green
+						break;
+					case 3:
+						sTitle = "Lv.35 Hitman";
+						tTitleColor = Color_t(33, 150, 243, 255); // Blue
+						break;
+					case 4:
+						sTitle = "Lv.50 Boss";
+						tTitleColor = Color_t(156, 39, 176, 255); // Purple
+						break;
+					case 5:
+						sTitle = "Lv.80 Godfather";
+						tTitleColor = Color_t(211, 47, 47, 255); // Red
+						break;
+					case 6:
+						sTitle = "Lv.100 BOSS OF ALL BOSSES";
+						tTitleColor = Color_t(255, 193, 7, 255); // Gold
+						break;
+				}
+
+				tCache.m_vText.push_back({ ESPTextEnum::Top, sTitle, tTitleColor, Color_t(0, 0, 0, 200) });
+			}
+
 
 			// Buffs
 			if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Buffs)
@@ -518,19 +718,24 @@ void CESP::StoreBuildings(CTFPlayer* pLocal)
 		else if (!(pEntity->m_iTeamNum() != pLocal->m_iTeamNum() ? Vars::ESP::Building.Value & Vars::ESP::BuildingEnum::Enemy : Vars::ESP::Building.Value & Vars::ESP::BuildingEnum::Team))
 			continue;
 
-		bool bIsMini = pBuilding->m_bMiniBuilding();
+		// distance things
+		const Vec3 vDelta = pBuilding->m_vecOrigin() - pLocal->m_vecOrigin();
+		const float flDistance = vDelta.Length2D();
+		if (flDistance >= Vars::ESP::MaxDist.Value) { continue; }
+
+		float flAlpha = Vars::ESP::ActiveAlpha.Value;
+		if (Vars::ESP::Dist2Alpha.Value)
+			flAlpha = Math::RemapVal(flDistance, Vars::ESP::MaxDist.Value - 256.f, Vars::ESP::MaxDist.Value, flAlpha / 255.f, 0.f);
 
 		BuildingCache& tCache = m_mBuildingCache[pEntity];
-		tCache.m_flAlpha = Vars::ESP::ActiveAlpha.Value / 255.f;
+		tCache.m_flAlpha = flAlpha;
 		tCache.m_tColor = GetColor(pLocal, pOwner ? pOwner : pEntity);
 		tCache.m_bBox = Vars::ESP::Building.Value & Vars::ESP::BuildingEnum::Box;
 
 		if (Vars::ESP::Building.Value & Vars::ESP::BuildingEnum::Distance)
-		{
-			Vec3 vDelta = pEntity->m_vecOrigin() - pLocal->m_vecOrigin();
 			tCache.m_vText.emplace_back(ESPTextEnum::Bottom, std::format("[{:.0f}M]", vDelta.Length2D() / 41), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
-		}
 
+		bool bIsMini = pBuilding->m_bMiniBuilding();
 		if (Vars::ESP::Building.Value & Vars::ESP::BuildingEnum::Name)
 		{
 			const char* szName = "Building";
@@ -644,15 +849,15 @@ void CESP::StoreProjectiles(CTFPlayer* pLocal)
 		}
 		case ETFClassID::CTFBaseProjectile:
 		case ETFClassID::CTFProjectile_EnergyRing:
-		//case ETFClassID::CTFProjectile_Syringe:
+			//case ETFClassID::CTFProjectile_Syringe:
 		{
 			auto pWeapon = pEntity->As<CTFBaseProjectile>()->m_hLauncher().Get();
 			pOwner = pWeapon ? pWeapon->As<CTFWeaponBase>()->m_hOwner().Get() : nullptr;
 			break;
 		}
 		}
+		
 		int iIndex = pOwner ? pOwner->entindex() : -1;
-
 		if (pOwner)
 		{
 			if (iIndex == I::EngineClient->GetLocalPlayer())
@@ -672,22 +877,31 @@ void CESP::StoreProjectiles(CTFPlayer* pLocal)
 		else if (!(pEntity->m_iTeamNum() != pLocal->m_iTeamNum() ? Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Enemy : Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Team))
 			continue;
 
+		// distance things
+		const Vec3 vDelta = pEntity->m_vecOrigin() - pLocal->m_vecOrigin();
+		const float flDistance = vDelta.Length2D();
+		if (flDistance >= Vars::ESP::MaxDist.Value) { continue; }
+
+		float flAlpha = Vars::ESP::ActiveAlpha.Value;
+		if (Vars::ESP::Dist2Alpha.Value)
+			flAlpha = Math::RemapVal(flDistance, Vars::ESP::MaxDist.Value - 256.f, Vars::ESP::MaxDist.Value, flAlpha / 255.f, 0.f);
+
 		WorldCache& tCache = m_mWorldCache[pEntity];
-		tCache.m_flAlpha = Vars::ESP::ActiveAlpha.Value / 255.f;
+		tCache.m_flAlpha = flAlpha;
 		tCache.m_tColor = GetColor(pLocal, pOwner ? pOwner : pEntity);
 		tCache.m_bBox = Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Box;
 
 		if (Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Distance)
-		{
-			Vec3 vDelta = pEntity->m_vecOrigin() - pLocal->m_vecOrigin();
 			tCache.m_vText.emplace_back(ESPTextEnum::Bottom, std::format("[{:.0f}M]", vDelta.Length2D() / 41), Vars::Menu::Theme::Active.Value, Vars::Menu::Theme::Background.Value);
-		}
 
 		if (Vars::ESP::Projectile.Value & Vars::ESP::ProjectileEnum::Name)
 		{
 			const char* szName = "Projectile";
 			switch (pEntity->GetClassID())
 			{
+				//case ETFClassID::CBaseProjectile:
+				//case ETFClassID::CBaseGrenade:
+				//case ETFClassID::CTFWeaponBaseGrenadeProj:
 			case ETFClassID::CTFWeaponBaseMerasmusGrenade: szName = "Bomb"; break;
 			case ETFClassID::CTFGrenadePipebombProjectile: szName = pEntity->As<CTFGrenadePipebombProjectile>()->HasStickyEffects() ? "Sticky" : "Pipe"; break;
 			case ETFClassID::CTFStunBall: szName = "Baseball"; break;
@@ -810,8 +1024,17 @@ void CESP::StoreObjective(CTFPlayer* pLocal)
 		if (!(pEntity->m_iTeamNum() != pLocal->m_iTeamNum() ? Vars::ESP::Objective.Value & Vars::ESP::ObjectiveEnum::Enemy : Vars::ESP::Objective.Value & Vars::ESP::ObjectiveEnum::Team))
 			continue;
 
+		// distance things
+		const Vec3 vDelta = pEntity->m_vecOrigin() - pLocal->m_vecOrigin();
+		const float flDistance = vDelta.Length2D();
+		if (flDistance >= Vars::ESP::MaxDist.Value) { continue; }
+
+		float flAlpha = Vars::ESP::ActiveAlpha.Value;
+		if (Vars::ESP::Dist2Alpha.Value)
+			flAlpha = Math::RemapVal(flDistance, Vars::ESP::MaxDist.Value - 256.f, Vars::ESP::MaxDist.Value, flAlpha / 255.f, 0.f);
+
 		WorldCache& tCache = m_mWorldCache[pEntity];
-		tCache.m_flAlpha = Vars::ESP::ActiveAlpha.Value / 255.f;
+		tCache.m_flAlpha = flAlpha;
 		tCache.m_tColor = GetColor(pLocal, pEntity);
 		tCache.m_bBox = Vars::ESP::Objective.Value & Vars::ESP::ObjectiveEnum::Box;
 
@@ -929,12 +1152,12 @@ void CESP::StoreWorld()
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_precision.mdl"): szName = "Precision"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_reflect.mdl"): szName = "Reflect"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_regen.mdl"): szName = "Regeneration"; break;
-			//case FNV1A::Hash32Const("models/pickups/pickup_powerup_resistance.mdl"): szName = "11"; break;
+				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_resistance.mdl"): szName = "11"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_strength.mdl"): szName = "Strength"; break;
-			//case FNV1A::Hash32Const("models/pickups/pickup_powerup_strength_arm.mdl"): szName = "13"; break;
+				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_strength_arm.mdl"): szName = "13"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_supernova.mdl"): szName = "Supernova"; break;
-			//case FNV1A::Hash32Const("models/pickups/pickup_powerup_thorns.mdl"): szName = "15"; break;
-			//case FNV1A::Hash32Const("models/pickups/pickup_powerup_uber.mdl"): szName = "16"; break;
+				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_thorns.mdl"): szName = "15"; break;
+				//case FNV1A::Hash32Const("models/pickups/pickup_powerup_uber.mdl"): szName = "16"; break;
 			case FNV1A::Hash32Const("models/pickups/pickup_powerup_vampire.mdl"): szName = "Vampire";
 			}
 			tCache.m_vText.emplace_back(ESPTextEnum::Top, szName, Vars::Colors::Powerup.Value, Vars::Menu::Theme::Background.Value);
@@ -974,7 +1197,7 @@ void CESP::StoreWorld()
 
 void CESP::Draw()
 {
-	if (!Vars::ESP::Draw.Value)
+	if (!Vars::ESP::Draw.Value || !I::EngineClient->IsInGame())
 		return;
 
 	DrawWorld();
@@ -1059,12 +1282,23 @@ void CESP::DrawPlayers()
 		}
 
 		int iVerticalOffset = H::Draw.Scale(3, Scale_Floor) - 1;
+		bool isFirstElement = true; // Flag to track the first element
 		for (auto& [iMode, sText, tColor, tOutline] : tCache.m_vText)
 		{
 			switch (iMode)
 			{
 			case ESPTextEnum::Top:
-				H::Draw.String(fFont, m, t - tOffset, tColor, ALIGN_BOTTOM, sText.c_str());
+				if (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::NameBackground && 
+				    Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::Name && 
+				    isFirstElement)
+				{
+					Color_t backgroundOutline = tOutline;
+					backgroundOutline.a = Vars::ESP::BackgroundOpacity.Value;
+					
+					H::Draw.StringWithBackground(fFont, m, t - tOffset, tColor, backgroundOutline, ALIGN_BOTTOM, sText.c_str());
+				}
+				else
+					H::Draw.StringOutlined(fFont, m, t - tOffset, tColor, tOutline, ALIGN_BOTTOM, sText.c_str());
 				tOffset += nTall;
 				break;
 			case ESPTextEnum::Bottom:
@@ -1081,6 +1315,7 @@ void CESP::DrawPlayers()
 			case ESPTextEnum::Uber:
 				H::Draw.String(fFont, r, y + h, tColor, ALIGN_TOPLEFT, sText.c_str());
 			}
+			isFirstElement = false; // Set to false after processing the first element
 		}
 
 		if (tCache.m_iClassIcon)
@@ -1095,6 +1330,72 @@ void CESP::DrawPlayers()
 			float flScale = H::Draw.Scale(std::min((w + 40) / 2.f, 80.f) / std::max(flW, flH * 2));
 			H::Draw.DrawHudTexture(m - flW / 2.f * flScale, b + bOffset, flScale, tCache.m_pWeaponIcon, Vars::Menu::Theme::Active.Value);
 		}
+
+		// if (tCache.m_bYawArrows || (pEntity->entindex() == I::EngineClient->GetLocalPlayer() && (Vars::ESP::Player.Value & Vars::ESP::PlayerEnum::YawArrows)))
+		// {
+		// 	auto pPlayer = pEntity->As<CTFPlayer>();
+		// 	if (!pPlayer || !pPlayer->IsAlive())
+		// 		continue;
+				
+		// 	const int iEntIndex = pPlayer->entindex();
+			
+		// 	if (iEntIndex == I::EngineClient->GetLocalPlayer())
+		// 	{
+		// 		if (Vars::Visuals::Thirdperson::Enabled.Value)
+		// 		{
+		// 			const float flArrowLength = 40.0f; // Real-world unit length
+		// 			const float flArrowThickness = 2.0f; // Thickness of arrow in world units
+		// 			const float flHeadSize = 15.0f;     // Arrow head size in world units
+		// 			const float flHeightOffset = 5.0f;   // Height from ground
+
+		// 			Vec3 vOrigin = pPlayer->GetAbsOrigin();
+		// 			vOrigin.z += flHeightOffset; // Offset from ground
+
+		// 			Vec3 vScreenOrigin;
+		// 			if (SDK::W2S(vOrigin, vScreenOrigin))
+		// 			{
+		// 				Color_t realColor = { 0, 255, 0, 255 }; // Bright green for real yaw
+		// 				Color_t fakeColor = { 255, 0, 0, 255 }; // Bright red for fake yaw
+		// 				Color_t realOutline = { 0, 0, 0, 255 }; // Black outline for real yaw
+		// 				Color_t fakeOutline = { 0, 0, 0, 255 }; // Black outline for fake yaw
+
+		// 				realColor.a = 210; // Slightly transparent to avoid visual clutter
+		// 				fakeColor.a = 210;
+		// 				realOutline.a = 255;
+		// 				fakeOutline.a = 255;
+		// 				float flRealYaw = 0.0f;
+		// 				float flFakeYaw = 0.0f;
+
+		// 				if (G::AntiAim)
+		// 				{
+		// 					flRealYaw = F::AntiAim.vRealAngles.y;
+		// 					flFakeYaw = F::AntiAim.vFakeAngles.y;
+		// 				}
+		// 				else
+		// 				{
+		// 					flRealYaw = I::EngineClient->GetViewAngles().y;
+		// 					flFakeYaw = flRealYaw + 120.0f; // Add an offset to demonstrate
+		// 				}
+
+		// 				// fuck you (NaN, W2S crashes fix)
+		// 				if (!std::isfinite(flRealYaw) || !std::isfinite(flFakeYaw))
+		// 					continue;
+
+		// 				int iArrowStyle = Vars::ESP::YawArrowsStyle.Value;
+						
+		// 				try {
+		// 					DrawYawArrow(vOrigin, flRealYaw, flArrowLength, flHeadSize, flHeightOffset, 
+		// 								realColor, realOutline, vScreenOrigin, static_cast<Vars::ESP::YawArrowsStyleEnum::YawArrowsStyleEnum>(iArrowStyle), true);
+							
+		// 					DrawYawArrow(vOrigin, flFakeYaw, flArrowLength, flHeadSize, flHeightOffset, 
+		// 								fakeColor, fakeOutline, vScreenOrigin, static_cast<Vars::ESP::YawArrowsStyleEnum::YawArrowsStyleEnum>(iArrowStyle), false);
+		// 				} catch (...) {
+		// 					// Silently explode if drawing causes an exception
+		// 				}
+		// 			}
+		// 		}
+		// 	}
+		// }
 	}
 
 	I::MatSystemSurface->DrawSetAlphaMultiplier(1.f);
@@ -1225,6 +1526,8 @@ Color_t CESP::GetColor(CTFPlayer* pLocal, CBaseEntity* pEntity)
 
 bool CESP::GetDrawBounds(CBaseEntity* pEntity, float& x, float& y, float& w, float& h)
 {
+	if (!pEntity || pEntity->IsDormant())
+		return false;
 	Vec3 vOrigin = pEntity->GetAbsOrigin();
 	matrix3x4 mTransform = { { 1, 0, 0, vOrigin.x }, { 0, 1, 0, vOrigin.y }, { 0, 0, 1, vOrigin.z } };
 	//if (pEntity->entindex() == I::EngineClient->GetLocalPlayer())

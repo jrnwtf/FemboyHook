@@ -27,8 +27,6 @@ class CGlow
 	IMaterial* m_pMatBlurX;
 	IMaterial* m_pMatBlurY;
 
-
-
 	struct GlowHasher_t
 	{
 		std::size_t operator()(const Glow_t& k) const
@@ -51,7 +49,6 @@ class CGlow
 
 	float m_flSavedBlend = 1.f;
 	bool m_bExtra = false;
-
 public:
 	void Initialize();
 	void Unload();

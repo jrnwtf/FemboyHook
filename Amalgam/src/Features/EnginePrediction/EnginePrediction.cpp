@@ -64,6 +64,7 @@ void CEnginePrediction::Simulate(CTFPlayer* pLocal, CUserCmd* pCmd)
 	I::GameMovement->ProcessMovement(pLocal, &m_MoveData);
 	RestorePlayers();
 	I::Prediction->FinishMove(pLocal, pCmd, &m_MoveData);
+	I::MoveHelper->ProcessImpacts();
 
 	if (m_bDoubletap)
 	{

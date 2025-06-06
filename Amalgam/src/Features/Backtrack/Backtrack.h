@@ -21,6 +21,13 @@ struct BoneMatrix
 	matrix3x4 m_aBones[MAXSTUDIOBONES];
 };
 
+struct HitboxInfo
+{
+	int m_iBone = -1, m_nHitbox = -1;
+	Vec3 m_vCenter = {};
+	Vec3 m_iMin = {}, m_iMax = {};
+};
+
 struct TickRecord
 {
 	float m_flSimTime = 0.f;
@@ -28,6 +35,7 @@ struct TickRecord
 	Vec3 m_vMins = {};
 	Vec3 m_vMaxs = {};
 	BoneMatrix m_BoneMatrix = {};
+	std::vector<HitboxInfo> m_vHitboxInfos = {};
 	bool m_bOnShot = false;
 	Vec3 m_vBreak = {};
 	bool m_bInvalid = false;
@@ -50,6 +58,14 @@ class CBacktrack
 	int m_nOldTickBase = 0;
 	float m_flMaxUnlag = 1.f;
 
+	struct CrosshairRecordInfo_t
+	{
+		float flMinDist{ -1.f };
+		float flFov{ -1.f };
+		bool bInsideThisRecord{ false };
+	};
+	std::optional<TickRecord> GetHitRecord(CBaseEntity* pEntity, CTFWeaponBase* pWeapon, CUserCmd* pCmd, CrosshairRecordInfo_t& InfoOut, const Vec3 vAngles, const Vec3 vPos);
+
 public:
 	void Store();
 	void SendLerp();
@@ -70,6 +86,7 @@ public:
 	void ReportShot(int iIndex);
 	void AdjustPing(CNetChannel* netChannel);
 	void RestorePing(CNetChannel* netChannel);
+	void BacktrackToCrosshair(CUserCmd* pCmd);
 
 	int m_iTickCount = 0;
 
