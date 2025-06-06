@@ -1,6 +1,7 @@
 #pragma once
 #include "CBasePlayer.h"
 #include "CMultiPlayerAnimState.h"
+#include "../../../Utils/Math/Math.h"
 
 MAKE_SIGNATURE(CTFPlayer_IsPlayerOnSteamFriendsList, "client.dll", "40 57 48 81 EC ? ? ? ? 48 8B FA E8", 0x0);
 MAKE_SIGNATURE(TeamFortress_CalculateMaxSpeed, "client.dll", "88 54 24 ? 53 55", 0x0);
@@ -246,7 +247,7 @@ public:
 	
 	inline void ThirdPersonSwitch(/*bool bThirdperson*/)
 	{
-		return reinterpret_cast<void(*)(void*/*, bool*/)>(U::Memory.GetVFunc(this, 256))(this/*, bThirdperson*/);
+		return reinterpret_cast<void(*)(void*/*, bool*/)>(U::Memory.GetVirtual(this, 256))(this/*, bThirdperson*/);
 	};
 };
 
