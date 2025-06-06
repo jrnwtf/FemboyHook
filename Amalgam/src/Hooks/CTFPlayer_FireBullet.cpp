@@ -9,7 +9,8 @@ MAKE_SIGNATURE(CTFPlayer_FireBullet, "client.dll", "48 89 74 24 ? 55 57 41 55 41
 
 static int iBullet{ 0 };
 static int iLastTickCount{ 0 };
-MAKE_HOOK(CBaseEntity_FireBullets, S::CBaseEntity_FireBullets(), void,
+
+MAKE_HOOK(CTFPlayer_FireBullet, S::CTFPlayer_FireBullet(), void,
 		  void* rcx, CBaseCombatWeapon* pWeapon, const FireBulletsInfo_t& info, bool bDoEffects, int nDamageType, int nCustomDamageType)
 {
 #ifdef DEBUG_HOOKS
@@ -95,7 +96,7 @@ MAKE_HOOK(CBaseEntity_FireBullets, S::CBaseEntity_FireBullets(), void,
 			G::LineStorage.emplace_back(std::pair<Vec3, Vec3>(trace.startpos, trace.endpos), flTime, bNospreadBullet ? Vars::Colors::NoSpread.Value : Vars::Colors::LineClipped.Value, true);
 
 		break;
-		SDK::Output("CBaseEntity_FireBullets", std::format("Fired bullet({},{}), m_bPrimaryAttack: {}", iBullet, info.m_iTracerFreq, info.m_bPrimaryAttack).c_str(), Vars::Menu::Theme::Accent.Value);
+		SDK::Output("CTFPlayer_FireBullet", std::format("Fired bullet({},{}), m_bPrimaryAttack: {}", iBullet, info.m_iTracerFreq, info.m_bPrimaryAttack).c_str(), Vars::Menu::Theme::Accent.Value);
 	}
 	case FNV1A::Hash32Const("Beam"):
 	{
@@ -122,7 +123,7 @@ MAKE_HOOK(CBaseEntity_FireBullets, S::CBaseEntity_FireBullets(), void,
 		beamInfo.m_nFlags = Vars::Visuals::Beams::Flags.Value;
 		beamInfo.m_vecStart = trace.startpos;
 		beamInfo.m_vecEnd = trace.endpos;
-		SDK::Output("CBaseEntity_FireBullets", std::format("Fired bullet({},{}), m_bPrimaryAttack: {}", iBullet, info.m_iTracerFreq, info.m_bPrimaryAttack).c_str(), Vars::Menu::Theme::Accent.Value);
+		SDK::Output("CTFPlayer_FireBullet", std::format("Fired bullet({},{}), m_bPrimaryAttack: {}", iBullet, info.m_iTracerFreq, info.m_bPrimaryAttack).c_str(), Vars::Menu::Theme::Accent.Value);
 		if (auto pBeam = I::ViewRenderBeams->CreateBeamPoints(beamInfo))
 			I::ViewRenderBeams->DrawBeam(pBeam);
 
