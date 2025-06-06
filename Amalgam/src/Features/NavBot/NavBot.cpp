@@ -2905,7 +2905,7 @@ void CNavBot::HandleMinigunSpinup(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUs
 
 	static Timer tSpinupTimer{};
 	auto pEntity = I::ClientEntityList->GetClientEntity(tClosestEnemy.m_iEntIdx);
-	if (pEntity && pEntity->As<CTFPlayer>()->IsAlive() && !pEntity->As<CTFPlayer>()->IsInvulnerable() && pWeapon->HasAmmo())
+	if (pEntity && pEntity->As<CTFPlayer>()->IsAlive() && !pEntity->As<CTFPlayer>()->IsInvulnerable())// && pWeapon->HasAmmo())
 	{
 		if ((G::AimTarget.m_iEntIndex && G::AimTarget.m_iDuration) || tClosestEnemy.m_flDist <= pow(800.f, 2))
 			tSpinupTimer.Update();
