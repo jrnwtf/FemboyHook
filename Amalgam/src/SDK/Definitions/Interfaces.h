@@ -41,6 +41,8 @@
 MAKE_INTERFACE_SIGNATURE_SEARCH(IDirect3DDevice9, DirectXDevice, "shaderapi", "48 8B 0D ? ? ? ? 48 8B 01 FF 50 ? 8B F8", 0x0, 1)
 #endif
 
+//MAKE_INTERFACE_VERSION(uintptr_t, FileSystem, "filesystem_stdio.dll", "VFileSystem022");
+
 class CNullInterfaces
 {
 private:
