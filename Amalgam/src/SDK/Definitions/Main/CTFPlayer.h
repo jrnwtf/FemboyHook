@@ -179,6 +179,7 @@ public:
 	NETVAR(m_iCampaignMedals, int, "CTFPlayer", "m_iCampaignMedals");
 	NETVAR(m_iPlayerSkinOverride, int, "CTFPlayer", "m_iPlayerSkinOverride");
 	NETVAR(m_bViewingCYOAPDA, bool, "CTFPlayer", "m_bViewingCYOAPDA");
+
 	inline void* m_Shared()
 	{
 		static int nOffset = U::NetVars.GetNetVar("CTFPlayer", "m_Shared");
