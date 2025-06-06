@@ -56,8 +56,8 @@ bool CNavBot::ShouldSearchAmmo(CTFPlayer* pLocal)
 			pLocal->GetAmmoCount(pWeapon->m_iPrimaryAmmoType()) <= 5)
 			return true;
 
-		if (!pWeapon->HasAmmo())
-			return true;
+		//if (!pWeapon->HasAmmo())
+			//return true;
 
 		int iMaxAmmo = SDK::GetWeaponMaxReserveAmmo(iWepID, pWeapon->m_iItemDefinitionIndex());
 		if (!iMaxAmmo)
@@ -2997,7 +2997,7 @@ void CNavBot::Run(CTFPlayer* pLocal, CTFWeaponBase* pWeapon, CUserCmd* pCmd)
 	{
 		static Timer tSpinupTimer{};
 		auto pEntity = I::ClientEntityList->GetClientEntity(tClosestEnemy.m_iEntIdx);
-		if (pEntity && pEntity->As<CTFPlayer>()->IsAlive() && !pEntity->As<CTFPlayer>()->IsInvulnerable() && pWeapon->HasAmmo())
+		if (pEntity && pEntity->As<CTFPlayer>()->IsAlive() && !pEntity->As<CTFPlayer>()->IsInvulnerable())// && pWeapon->HasAmmo())
 		{
 			if (G::AimTarget.m_iEntIndex && G::AimTarget.m_iDuration || tClosestEnemy.m_flDist <= pow(800.f, 2))
 				tSpinupTimer.Update();
