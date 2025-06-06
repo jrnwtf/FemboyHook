@@ -92,6 +92,7 @@ public:
 	
 	NETVAR_OFF(m_flOldSimulationTime, float, "CBaseEntity", "m_flSimulationTime", 4);
 	NETVAR_OFF(m_Particles, CParticleProperty*, "CBaseEntity", "m_flElasticity", -56);
+
 	inline CBaseEntity* GetMoveParent()
 	{
 		static int nOffset = U::NetVars.GetNetVar("CBaseEntity", "moveparent") - 8;
@@ -99,6 +100,7 @@ public:
 
 		return m_pMoveParent ? m_pMoveParent->Get() : nullptr;
 	}
+
 	inline CBaseEntity* NextMovePeer()
 	{
 		static int nOffset = U::NetVars.GetNetVar("CBaseEntity", "moveparent") - 16;
@@ -106,6 +108,7 @@ public:
 
 		return m_pMovePeer ? m_pMovePeer->Get() : nullptr;
 	}
+
 	inline CBaseEntity* FirstMoveChild()
 	{
 		static int nOffset = U::NetVars.GetNetVar("CBaseEntity", "moveparent") - 24;
@@ -120,8 +123,10 @@ public:
 	SIGNATURE_ARGS(SetAbsAngles, void, CBaseEntity, (const Vec3& vAngles), this, std::ref(vAngles));
 	SIGNATURE_ARGS(SetAbsVelocity, void, CBaseEntity, (const Vec3& vVelocity), this, std::ref(vVelocity));
 	SIGNATURE_ARGS(EstimateAbsVelocity, void, CBaseEntity, (Vec3& vVelocity), this, std::ref(vVelocity));
+
 	SIGNATURE(InvalidateBoneCache, void, CBaseEntity, this);
 	SIGNATURE(CreateShadow, void, CBaseEntity, this);
+
 	inline Vec3 GetAbsVelocity()
 	{
 		Vec3 vOut;
@@ -133,6 +138,7 @@ public:
 	Vec3 GetOffset();
 	Vec3 GetCenter();
 	Vec3 GetRenderCenter();
+
 	int IsInValidTeam();
 	int SolidMask();
 
