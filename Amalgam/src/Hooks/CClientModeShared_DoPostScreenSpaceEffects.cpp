@@ -31,13 +31,16 @@ MAKE_HOOK(CClientModeShared_DoPostScreenSpaceEffects, U::Memory.GetVirtual(I::Cl
 	if (F::CameraWindow.m_bDrawing)
 		return CALL_ORIGINAL(rcx, pSetup);
 
-	//F::Visuals.DrawEffects();
 	F::NavEngine.Render();
-	F::Visuals.DrawBoxes();
-	F::Visuals.DrawPaths();
-	F::Visuals.DrawLines();
-	F::Visuals.DrawSightlines();
+
+	F::Visuals.DrawEffects();
+	//F::Visuals.DrawBoxes();
+	//F::Visuals.DrawPaths();
+	//F::Visuals.DrawLines();
+	//F::Visuals.DrawSightlines();
+
 	F::Chams.m_mEntities.clear();
+
 	if (!I::EngineVGui->IsGameUIVisible() && pLocal && F::Materials.m_bLoaded)
 	{
 		F::Chams.RenderMain();
