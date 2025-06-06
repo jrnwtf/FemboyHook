@@ -164,7 +164,7 @@ void CCore::Load()
 		AppendFailText("Invalid process");
 		return;
 	}
-
+	float flTime = 0.f;
 	float flStart = GetModuleHandleA("tier0.dll") ? SDK::PlatFloatTime() : 0.0f;
 	while (!ModulesLoaded())
 	{
@@ -202,8 +202,8 @@ void CCore::Load()
 	std::mt19937 gen(rd());
 	std::uniform_int_distribution<> distrib(0, static_cast<int>(loadedMessages.size()) - 1);
 	const char* randomLoadedMessage = loadedMessages[distrib(gen)];
-	I::EngineClient->ClientCmd_Unrestricted(std::format("tf_party_chat \"{}\"", randomLoadedMessage).c_str());
-	I::EngineClient->ClientCmd_Unrestricted(std::format("play shivermetimbers/shivermetimbers.mp3").c_str());
+	//I::EngineClient->ClientCmd_Unrestricted(std::format("tf_party_chat \"{}\"", randomLoadedMessage).c_str());
+	//I::EngineClient->ClientCmd_Unrestricted(std::format("play shivermetimbers/shivermetimbers.mp3").c_str());
 	I::EngineClient->ClientCmd_Unrestricted(std::format("cl_hud_playerclass_use_playermodel 0").c_str());
 #ifdef TEXTMODE
 	I::EngineClient->ClientCmd_Unrestricted(std::format("fps_max 24").c_str());
@@ -311,7 +311,7 @@ void CCore::Unload()
 	std::mt19937 genUnload(rdUnload());
 	std::uniform_int_distribution<> distribUnload(0, static_cast<int>(unloadedMessages.size()) - 1);
 	const char* randomUnloadedMessage = unloadedMessages[distribUnload(genUnload)];
-	I::EngineClient->ClientCmd_Unrestricted(std::format("tf_party_chat \"{}\"", randomUnloadedMessage).c_str());
-	I::EngineClient->ClientCmd_Unrestricted(std::format("play shivermetimbers/shivermetimbers.mp3").c_str());
+	//I::EngineClient->ClientCmd_Unrestricted(std::format("tf_party_chat \"{}\"", randomUnloadedMessage).c_str());
+	//I::EngineClient->ClientCmd_Unrestricted(std::format("play shivermetimbers/shivermetimbers.mp3").c_str());
 	SDK::Output("Amalgam", "Unloaded", { 175, 150, 255 }, true, true);
 }
